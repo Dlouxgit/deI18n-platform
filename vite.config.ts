@@ -6,7 +6,7 @@ import basicSsl from '@vitejs/plugin-basic-ssl'
 export default defineConfig({
   server: {
     proxy: {}
-},
+  },
   plugins: [
     remix({
       future: {

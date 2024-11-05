@@ -1,11 +1,15 @@
 import mysql from 'mysql2/promise';
 
 const connection = await mysql.createConnection({
-  host: 'mysql',
+  host: '192.168.0.24',
   user: 'root',
-  password: 'root',
-  database: 'i18n'
+  password: 'root'
 });
+
+await connection.execute('CREATE DATABASE IF NOT EXISTS i18n');
+await connection.execute('USE i18n');
+
+await connection.createTranslationsTable();
 
 const model = {
   getDbConnection: async () => {
@@ -13,18 +17,12 @@ const model = {
   },
   createTranslationsTable: async () => {
     return await connection.execute(`
-      CREATE TABLE IF NOT EXISTS i18n_translations (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        language_script_code VARCHAR(255) NOT NULL,
-        column_name VARCHAR(255) NOT NULL,
-        column_value TEXT,
-        app_name VARCHAR(255),
-        created_by VARCHAR(255),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_by VARCHAR(255),
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_translation (language_script_code, column_name, app_name)
-      );
+      CREATE TABLE i18n_key_collection (
+        id INT AUTO_INCREMENT PRIMARY KEY COMMENT '唯一标识符',
+        column_name VARCHAR(255) NOT NULL COMMENT '记录选择的 column_name',
+        app_name VARCHAR(255) NOT NULL COMMENT '记录对应的 app_name',
+        title VARCHAR(255) NOT NULL COMMENT '记录为选择的 column 取的新名字'
+      ) COMMENT='记录选择了 i18n_translations 表中的哪些 column_name 和对应的 app_name，以及为选择的 column 取的新名字';
     `);
   },
   mutilInsertTranslation: async (translations) => {
