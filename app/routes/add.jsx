@@ -53,7 +53,7 @@ export default function Add() {
       <Form method="post">
         <Flex gap="2" direction="column">
           <Heading>公共内容</Heading>
-          <Box maxWidth="200px">
+          <Box maxWidth="600px">
             <TextField.Root
               placeholder="Insert app name"
               name="app_name"
@@ -61,7 +61,7 @@ export default function Add() {
               onChange={e => setAppName(e.target.value)}
             />
           </Box>
-          <Box maxWidth="200px">
+          <Box maxWidth="600px">
             <TextField.Root
               placeholder="Insert key"
               name="column_name"
