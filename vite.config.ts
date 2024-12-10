@@ -7,6 +7,9 @@ export default defineConfig({
   server: {
     proxy: {}
   },
+  build: {
+    target: 'esnext'
+  },
   plugins: [
     remix({
       future: {

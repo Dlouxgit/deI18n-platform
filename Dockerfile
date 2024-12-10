@@ -11,6 +11,10 @@ RUN pnpm install
 
 COPY . .
 
+RUN pnpm build
+
+ENV PORT=7999
+
 EXPOSE 7999
 
-CMD ["npm", "run", "dev", "--", "--host", "--port", "7999"]
+CMD ["pnpm", "start"]
