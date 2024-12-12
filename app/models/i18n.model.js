@@ -7,7 +7,18 @@ const pool = await mysql.createPool({
   database: 'i18n',
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  connectTimeout: 10000,     // 连接超时
+  idleTimeout: 60000,        // 空闲超时
+});
+
+// 添加连接池状态监控
+pool.on('acquire', function (connection) {
+  console.log('Connection %d acquired', connection.threadId);
+});
+
+pool.on('release', function (connection) {
+  console.log('Connection %d released', connection.threadId);
 });
 
 const model = {
@@ -35,8 +46,7 @@ const model = {
       connection.release();
     }
   },
-  mutilInsertTranslation: async (translations) => {
-    const connection = await pool.getConnection();
+  mutilInsertTranslation: async (connection, translations, overwrite = false) => {
     try {
       const values = [];
       const placeholders = translations.map(({ languageCode, key, value, appName }) => {
@@ -52,26 +62,29 @@ const model = {
 
       // 打印存在的相同记录
       const records = existingRows[0].map(row => {
-        const record = `存在相同记录: language_script_code=${row.language_script_code}, column_name=${row.column_name}, app_name=${row.app_name}`
+        const record = overwrite ? `已经覆写同名记录: language_script_code=${row.language_script_code}, column_name=${row.column_name}, app_name=${row.app_name}` : `存在相同记录: language_script_code=${row.language_script_code}, column_name=${row.column_name}, app_name=${row.app_name}`;
         return record;
       });
 
-      // 执行批量插入，忽略已存在的记录
-      const result = await connection.execute(`
+      // 执行批量插入，根据是否覆写决定是否更新已存在的记录
+      const query = overwrite ? `
         INSERT INTO i18n_translations (language_script_code, column_name, column_value, app_name, created_at, updated_at)
         VALUES ${placeholders}
         ON DUPLICATE KEY UPDATE column_value = VALUES(column_value), updated_at = CURRENT_TIMESTAMP
-      `, values);
+      ` : `
+        INSERT IGNORE INTO i18n_translations (language_script_code, column_name, column_value, app_name, created_at, updated_at)
+        VALUES ${placeholders}
+      `;
+      const result = await connection.execute(query, values);
       return {
         result,
         records
       }
-    } finally {
-      connection.release();
+    } catch (error) {
+      console.error(error);
     }
   },
-  insertTranslation: async (languageCode, key, value, appName) => {
-    const connection = await pool.getConnection();
+  insertTranslation: async (connection, languageCode, key, value, appName, overwrite = false) => {
     try {
       // 检查是否已存在相同的记录
       const [existingRows] = await connection.execute(`
@@ -80,8 +93,10 @@ const model = {
       `, [languageCode, key, appName]);
 
       if (existingRows.length > 0) {
-        return {
-          error: '相同 app_name 下已有同 language_script_code 的同名 key'
+        if (!overwrite) {
+          return {
+            error: '相同 app_name 下已有同 language_script_code 的同名 key'
+          }
         }
       }
 
@@ -90,8 +105,9 @@ const model = {
         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         ON DUPLICATE KEY UPDATE column_value = VALUES(column_value), updated_at = CURRENT_TIMESTAMP
       `, [languageCode, key, value, appName]);
-    } finally {
-      connection.release();
+    } catch (error) {
+      console.error(error);
+      // connection.release();
     }
   },
   updateTranslationById: async (id, column_value) => {

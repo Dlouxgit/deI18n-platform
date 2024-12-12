@@ -1,6 +1,6 @@
-import { json, useActionData, Form } from '@remix-run/react'
+import { json, useActionData, Form, useNavigation } from '@remix-run/react'
 import flattenJson from './utils'
-import { Box, Button, Flex, Heading, TextField, Link } from '@radix-ui/themes'
+import { Box, Button, Flex, Heading, TextField, Link, Switch, Badge, Spinner } from '@radix-ui/themes'
 import {
   getDbConnection,
   mutilInsertTranslation
@@ -10,6 +10,8 @@ export const action = async ({ request }) => {
   const formData = await request.formData()
   const file = formData.get('file')
   const appName = formData.get('app_name') || null
+  const overwrite = formData.get('overwrite') === 'on' ? true : false // 根据 Switch 的状态决定是否增加 overwrite 参数
+
   if (!file || !(file instanceof File)) {
     return json({ error: 'No file uploaded' }, { status: 400 })
   }
@@ -60,7 +62,7 @@ export const action = async ({ request }) => {
           }
         })
 
-        const { records } = await mutilInsertTranslation(translationsToInsert)
+        const { records } = await mutilInsertTranslation(connection, translationsToInsert, overwrite)
         return records
       })
       const languageRecords = await Promise.all(promises)
@@ -78,7 +80,7 @@ export const action = async ({ request }) => {
           appName
         }
       })
-      const { records } = await mutilInsertTranslation(translationsToInsert)
+      const { records } = await mutilInsertTranslation(connection, translationsToInsert, overwrite)
       returnRecords.push(...records)
 
     }
@@ -92,11 +94,15 @@ export const action = async ({ request }) => {
   } catch (error) {
     await connection.rollback()
     return json({ error: error.message }, { status: 500 })
+  } finally {
+    connection.release()
   }
 }
 
 export default function Import() {
   const actionData = useActionData()
+  const navigation = useNavigation()
+  const isSubmitting = navigation.state === 'submitting'
 
   return (
     <Box className="import-container">
@@ -111,11 +117,11 @@ export default function Import() {
             />
           </Box>
           <Box maxWidth="100px" className="import-box">
-            <Button type="submit" className="import-button">
-              Import
+            <Button type="submit" className="import-button" disabled={isSubmitting}>
+              {isSubmitting ? <Spinner /> : 'Import'}
             </Button>
           </Box>
-          <Box maxWidth="100px" className="import-box">
+          <Box maxWidth="200px" className="import-box">
             <input
               type="file"
               name="file"
@@ -124,18 +130,21 @@ export default function Import() {
             />
           </Box>
         </Flex>
+        <Box maxWidth="200px" mt="2" className="import-box">
+          <strong>Overwrite database</strong>?
+          <br />
+          <Switch name="overwrite" />
+        </Box>
       </Form>
       {actionData?.success && (
         <p className="import-message">{actionData.message}</p>
       )}
       {actionData?.error && <p className="import-error">{actionData.error}</p>}
       {actionData?.records && (
-        <p className="import-records">
-          {actionData.records.length} records import failed
-        </p>
+        <Badge color="orange">{actionData.records.length} records import conflict</Badge>
       )}
       {actionData?.records?.map((record) => (
-        <p className="import-record" key={record.id}>{record.message}</p>
+        <p className="import-record" key={record}>{record}</p>
       ))}
       <Link href="/" className="import-link">
         Back to translations

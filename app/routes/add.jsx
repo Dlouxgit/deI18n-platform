@@ -1,4 +1,4 @@
-import { json, useActionData, Form } from '@remix-run/react'
+import { json, useActionData, Form, useNavigation } from '@remix-run/react'
 import { useState } from 'react'
 import {
   TextField,
@@ -6,7 +6,8 @@ import {
   Box,
   Button,
   Heading,
-  Link
+  Link,
+  Spinner
 } from '@radix-ui/themes'
 import {
   getDbConnection,
@@ -16,13 +17,12 @@ import {
 export const action = async ({ request }) => {
   const formData = await request.formData()
   const { app_name, column_name, ...values } = Object.fromEntries(formData)
-
   const connection = await getDbConnection()
   let errors = {}
   try {
     await connection.beginTransaction()
     for (const language in values) {
-      const result = await insertTranslation(language, column_name, values[language], app_name)
+      const result = await insertTranslation(connection, language, column_name, values[language], app_name)
       if (result.error) {
         errors[language] = result.error
       }
@@ -32,14 +32,19 @@ export const action = async ({ request }) => {
   } catch (error) {
     await connection.rollback()
     return json({ error: error.message, errors }, { status: 400 })
+  } finally {
+    connection.release()
   }
 }
 
 export default function Add() {
   const actionData = useActionData()
+  const navigation = useNavigation()
   const [app_name, setAppName] = useState('')
   const [column_name, setColumnName] = useState('')
   const [translations, setTranslations] = useState({})
+
+  const isSubmitting = navigation.state === 'submitting'
 
   return (
     <>
@@ -89,7 +94,9 @@ export default function Add() {
             </Box>
           ))}
         </Flex>
-        <Button type="submit" mt="2">Save</Button>
+        <Button type="submit" mt="2" disabled={isSubmitting}>
+          {isSubmitting ? <Spinner /> : 'Save'}
+        </Button>
         {actionData?.success && (
           <p>Translations added successfully</p>
         )}
