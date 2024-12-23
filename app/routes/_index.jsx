@@ -10,19 +10,22 @@ import {
   Link,
   Badge,
   AlertDialog,
+  Select
 } from '@radix-ui/themes'
 import {
   getDbConnection,
   getTranslations,
   updateTranslationById,
   insertTranslation,
-  deleteTranslationByColumnAndApp
+  deleteTranslationByColumnAndApp,
+  getAllAppNames
 } from '../service/i18n'
 
 export const loader = async ({ request }) => {
   const url = new URL(request.url)
   const appName = url.searchParams.get('app_name') || ''
   const columnNames = url.searchParams.get('column_name')
+  const appNames = await getAllAppNames()
 
   try {
     const translations = await getTranslations(appName, columnNames)
@@ -42,7 +45,8 @@ export const loader = async ({ request }) => {
       translations: uniqueTranslations,
       appName,
       groupedTranslations,
-      columnNames
+      columnNames,
+      appNames
     })
   } catch (error) {
     return json({ error: error.message }, { status: 500 })
@@ -88,7 +92,7 @@ export const action = async ({ request }) => {
 }
 
 export default function Index() {
-  const { translations, appName, groupedTranslations, columnNames } = useLoaderData()
+  const { translations, appName, groupedTranslations, columnNames, appNames } = useLoaderData()
   const [editingIds, setEditingIds] = useState({})
   const [deletingId, setDeletingId] = useState(null)
   const [isIframe, setIsIframe] = useState(true)
@@ -106,22 +110,35 @@ export default function Index() {
       <Link href="/import">To Import Translations</Link>
       <Form method="get">
         <Flex gap="2">
-          <Box maxWidth="200px">
-            <TextField.Root
-              defaultValue={appName}
-              placeholder="Filter by app name"
-              name="app_name"
-            />
+          <Box>
+            <Select.Root defaultValue={appName} name="app_name">
+              <Select.Trigger placeholder="Select App Name" />
+              <Select.Content>
+                <Select.Group>
+                  <Select.Label>App Name</Select.Label>
+                  {appNames.map(name => (
+                    <Select.Item key={name} value={name}>{name}</Select.Item>
+                  ))}
+                </Select.Group>
+              </Select.Content>
+            </Select.Root>
           </Box>
-          <Box maxWidth="200px">
+          <Box maxWidth="450px">
             <TextField.Root
               defaultValue={columnNames}
               placeholder="Filter by column name"
               name="column_name"
+              onChange={(e) => e.target.value = e.target.value.trim()}
+              style={{ width: '240px' }}
             />
           </Box>
           <Box maxWidth="100px">
             <Button type="submit">Filter</Button>
+          </Box>
+          <Box maxWidth="100px">
+            <Button type="reset" variant="soft" onClick={() => {
+              window.location.href = '/'
+            }}>Reset</Button>
           </Box>
         </Flex>
       </Form>

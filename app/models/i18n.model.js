@@ -110,6 +110,20 @@ const model = {
       // connection.release();
     }
   },
+  getAllAppNames: async () => {
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await connection.execute(`
+        SELECT DISTINCT app_name
+        FROM i18n_translations
+        WHERE app_name IS NOT NULL
+        ORDER BY app_name
+      `);
+      return rows.map(row => row.app_name);
+    } finally {
+      connection.release();
+    }
+  },
   updateTranslationById: async (id, column_value) => {
     const connection = await pool.getConnection();
     try {
