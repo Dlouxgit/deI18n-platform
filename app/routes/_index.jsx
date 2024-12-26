@@ -107,7 +107,10 @@ export default function Index() {
   return (
     <>
       <Heading>i18n Translation Platform</Heading>
-      <Link href="/import">To Import Translations</Link>
+      <Flex gap="2">
+        <Link href="/import">To Import Translations</Link>
+        <Link href="/export">To Export Translations</Link>
+      </Flex>
       <Form method="get">
         <Flex gap="2">
           <Box>

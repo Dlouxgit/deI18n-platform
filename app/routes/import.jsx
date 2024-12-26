@@ -109,11 +109,13 @@ export default function Import() {
       <Heading className="import-title">Import Translations</Heading>
       <Form method="post" encType="multipart/form-data" className="import-form">
         <Flex gap="2" className="import-flex">
-          <Box maxWidth="200px" className="import-box">
+          <Box maxWidth="500px" className="import-box">
             <TextField.Root
               placeholder="Insert to app_name"
               name="app_name"
               className="import-textfield"
+              style={{ width: '340px' }}
+              onChange={(e) => e.target.value = e.target.value.trim()}
             />
           </Box>
           <Box maxWidth="100px" className="import-box">
