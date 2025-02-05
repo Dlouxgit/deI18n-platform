@@ -22,74 +22,85 @@ import {
 } from '../service/i18n'
 
 export const loader = async ({ request }) => {
-  const url = new URL(request.url)
-  const appName = url.searchParams.get('app_name') || ''
-  const columnNames = url.searchParams.get('column_name')
-  const appNames = await getAllAppNames()
-
+  const connection = await getDbConnection();
   try {
-    const translations = await getTranslations(appName, columnNames)
-    // 将数据按 column_name 和 app_name 分组
+    const url = new URL(request.url);
+    const appName = url.searchParams.get('app_name') || '';
+    const columnNames = url.searchParams.get('column_name');
+
+    const appNames = await getAllAppNames(connection);
+    const translations = await getTranslations(connection, appName, columnNames);
+
     const groupedTranslations = translations.reduce((acc, current) => {
-      const { column_name, app_name } = current
-      const key = `${column_name}&${app_name}`
+      const { column_name, app_name } = current;
+      const key = `${column_name}&${app_name}`;
       if (!acc[key]) {
-        acc[key] = []
+        acc[key] = [];
       }
-      acc[key].push(current)
-      return acc
-    }, {})
-    // 过滤重复的 column_name 和 app_name
-    const uniqueTranslations = Object.keys(groupedTranslations)
+      acc[key].push(current);
+      return acc;
+    }, {});
+
+    const uniqueTranslations = Object.keys(groupedTranslations);
+
     return json({
       translations: uniqueTranslations,
       appName,
       groupedTranslations,
       columnNames,
       appNames
-    })
+    });
   } catch (error) {
-    return json({ error: error.message }, { status: 500 })
+    console.error('Loader error:', error);
+    return json({ error: error.message }, { status: 500 });
+  } finally {
+    if (connection) {
+      await connection.release();
+      console.log(`Connection released in loader`);
+    }
   }
-}
+};
 
 export const action = async ({ request }) => {
-  const formData = await request.formData()
-  const { _action, ...values } = Object.fromEntries(formData)
+  const formData = await request.formData();
+  const { _action, ...values } = Object.fromEntries(formData);
 
-  const connection = await getDbConnection()
+  const connection = await getDbConnection();
   try {
     if (_action === 'update') {
-      const column_name = values.column_name
-      const appName = values.app_name
+      const column_name = values.column_name;
+      const appName = values.app_name;
       const column_values = Object.keys(values)
         .filter((key) => key.startsWith('column_value_'))
         .map((key) => {
-          const [column_value_language, id] = key.split('&')
-          const language_script_code = column_value_language.split('column_value_')[1]
-          return { id, language_script_code, column_value: values[key] }
-        })
-      await connection.beginTransaction()
+          const [column_value_language, id] = key.split('&');
+          const language_script_code = column_value_language.split('column_value_')[1];
+          return { id, language_script_code, column_value: values[key] };
+        });
       for (const column_value of column_values) {
         if (column_value.id) {
-          await updateTranslationById(column_value.id, column_value.column_value)
+          await updateTranslationById(connection, column_value.id, column_value.column_value);
         } else {
-          await insertTranslation(column_value.language_script_code, column_name, column_value.column_value, appName)
+          await insertTranslation(connection, column_value.language_script_code, column_name, column_value.column_value, appName);
         }
       }
-      await connection.commit()
     } else if (_action === 'delete') {
-      const column_name = values.column_name
-      const appName = values.app_name
-      await deleteTranslationByColumnAndApp(column_name, appName)
-      await connection.commit()
+      const column_name = values.column_name;
+      const appName = values.app_name;
+      await deleteTranslationByColumnAndApp(connection, column_name, appName);
     }
-    return json({ success: true })
+    await connection.commit();
+    return json({ success: true });
   } catch (error) {
-    await connection.rollback()
-    return json({ error: error.message }, { status: 400 })
+    await connection.rollback();
+    return json({ error: error.message }, { status: 400 });
+  } finally {
+    if (connection) {
+      await connection.release();
+      console.log(`Connection released in action`);
+    }
   }
-}
+};
 
 export default function Index() {
   const { translations, appName, groupedTranslations, columnNames, appNames } = useLoaderData()

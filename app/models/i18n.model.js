@@ -100,18 +100,18 @@ const model = {
         }
       }
 
+      // 使用传入的 connection 执行查询
       return await connection.execute(`
         INSERT INTO i18n_translations (language_script_code, column_name, column_value, app_name, created_at, updated_at)
         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         ON DUPLICATE KEY UPDATE column_value = VALUES(column_value), updated_at = CURRENT_TIMESTAMP
       `, [languageCode, key, value, appName]);
     } catch (error) {
-      console.error(error);
-      // connection.release();
+      console.error('插入翻译失败:', error);
+      throw error;
     }
   },
-  getAllAppNames: async () => {
-    const connection = await pool.getConnection();
+  getAllAppNames: async (connection) => {
     try {
       const [rows] = await connection.execute(`
         SELECT DISTINCT app_name
@@ -120,31 +120,32 @@ const model = {
         ORDER BY app_name
       `);
       return rows.map(row => row.app_name);
-    } finally {
-      connection.release();
+    } catch (error) {
+      console.error('获取应用名称失败:', error);
+      throw error;
     }
   },
-  updateTranslationById: async (id, column_value) => {
-    const connection = await pool.getConnection();
+  updateTranslationById: async (connection, id, column_value) => {
     try {
+      // 注意：直接使用传入的 connection 执行查询
       return await connection.execute(
         'UPDATE i18n_translations SET column_value = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
         [column_value, id]
       );
-    } finally {
-      connection.release();
+    } catch (error) {
+      console.error('更新翻译失败:', error);
+      throw error;
     }
   },
-  deleteTranslationByColumnAndApp: async (column_name, app_name) => {
-    const connection = await pool.getConnection();
+  deleteTranslationByColumnAndApp: async (connection, column_name, app_name) => {
     try {
       return await connection.execute('DELETE FROM i18n_translations WHERE column_name = ? AND app_name = ?', [column_name, app_name]);
-    } finally {
-      connection.release();
+    } catch (error) {
+      console.error('删除翻译失败:', error);
+      throw error;
     }
   },
-  getTranslations: async (appName, columnName) => {
-    const connection = await pool.getConnection();
+  getTranslations: async (connection, appName, columnName) => {
     try {
       let query = `SELECT * FROM i18n_translations`;
       let params = [];
@@ -168,8 +169,9 @@ const model = {
 
       const [rows] = await connection.execute(query, params);
       return rows;
-    } finally {
-      connection.release();
+    } catch (error) {
+      console.error('获取翻译失败:', error);
+      throw error;
     }
   }
 };
