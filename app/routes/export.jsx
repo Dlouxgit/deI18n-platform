@@ -2,13 +2,25 @@ import { useState } from 'react';
 import { useLoaderData } from '@remix-run/react';
 import { json } from '@remix-run/node';
 import { Select, Button, Flex, Link } from '@radix-ui/themes';
-import { getAllAppNames } from '../service/i18n';
+import { getAllAppNames, getDbConnection } from '../service/i18n';
 
 export const loader = async ({ request }) => {
-  const appNames = await getAllAppNames();
-  const url = new URL(request.url);
-  const appName = url.searchParams.get('app_name') || '';
-  return json({ appNames, selectedAppName: appName });
+  const connection = await getDbConnection();
+  try {
+    const url = new URL(request.url);
+    const appName = url.searchParams.get('app_name') || '';
+    // 传入 connection 参数
+    const appNames = await getAllAppNames(connection);
+    return json({ appNames, selectedAppName: appName });
+  } catch (error) {
+    console.error('Export loader error:', error);
+    return json({ error: error.message }, { status: 500 });
+  } finally {
+    if (connection) {
+      await connection.release();
+      console.log('Connection released in export loader');
+    }
+  }
 };
 
 export default function ExportPage() {
