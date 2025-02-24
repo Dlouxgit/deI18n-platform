@@ -75,14 +75,15 @@ export default function Add() {
             />
           </Box>
           <Heading>翻译文案</Heading>
-          {['zh-CN', 'en-US', 'ja-JP', 'zh-TW'].map((language) => (
+          {['zh-CN', 'en-US', 'ja-JP', 'zh-TW', 'vi-VN'].map((language) => (
             <Box key={language} width="100%" mb="2">
               <TextField.Root
                 placeholder={
                   language === 'zh-CN' ? '请输入 zh-CN 翻译' :
                   language === 'en-US' ? 'Insert en-US translation' :
                   language === 'ja-JP' ? 'ja-JP の翻訳を挿入' :
-                  language === 'zh-TW' ? '請輸入 zh-TW 翻譯' : ''
+                  language === 'zh-TW' ? '請輸入 zh-TW 翻譯' :
+                  language === 'vi-VN' ? 'Nhập bản dịch vi-VN' : ''
                 }
                 name={language}
                 value={translations[language] || ''}

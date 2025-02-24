@@ -41,12 +41,12 @@ export const action = async ({ request }) => {
 
     const returnRecords = []
 
-    if (!['zh-CN', 'zh-TW', 'en-US', 'ja-JP'].includes(languageCode)) {
-      const targetKeys = ['zh-CN', 'zh-TW', 'en-US', 'ja-JP']
+    if (!['zh-CN', 'zh-TW', 'en-US', 'ja-JP', 'vi-VN'].includes(languageCode)) {
+      const targetKeys = ['zh-CN', 'zh-TW', 'en-US', 'ja-JP', 'vi-VN']
       const existingKeys = keys.filter((key) => targetKeys.includes(key))
       if (existingKeys.length === 0) {
         return json(
-          { error: '文件格式错误: 缺少 zh-CN、zh-TW、en-US、ja-JP 语言代码' },
+          { error: '文件格式错误: 缺少 zh-CN、zh-TW、en-US、ja-JP、vi-VN 语言代码' },
           { status: 400 }
         )
       }

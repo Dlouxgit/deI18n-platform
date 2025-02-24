@@ -203,7 +203,7 @@ export default function Index() {
                             name="_action"
                             value="update"
                           />
-                          {['zh-CN', 'en-US', 'ja-JP', 'zh-TW'].map((language) => (
+                          {['zh-CN', 'en-US', 'ja-JP', 'zh-TW', 'vi-VN'].map((language) => (
                             <Box key={language} width="100%">
                               <Badge
                                 color={getBadgeColor(language)}
@@ -326,6 +326,8 @@ function getBadgeColor(languageScriptCode) {
       return 'orange'
     case 'zh-TW':
       return 'crimson'
+    case 'vi-VN':
+      return 'green'
     default:
       return 'gray'
   }
