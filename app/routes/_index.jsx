@@ -10,7 +10,8 @@ import {
   Link,
   Badge,
   AlertDialog,
-  Select
+  Select,
+  Checkbox
 } from '@radix-ui/themes'
 import {
   getDbConnection,
@@ -107,6 +108,77 @@ export default function Index() {
   const [editingIds, setEditingIds] = useState({})
   const [deletingId, setDeletingId] = useState(null)
   const [isIframe, setIsIframe] = useState(true)
+  const [scrollPosition, setScrollPosition] = useState(0)
+  const [searchValue, setSearchValue] = useState('')
+  const [showEmptyOnly, setShowEmptyOnly] = useState(false)
+  const [showScrollTop, setShowScrollTop] = useState(false)
+  const [sortDirection, setSortDirection] = useState('default')
+
+  // 所有支持的语言列表
+  const SUPPORTED_LANGUAGES = ['zh-CN', 'en-US', 'ja-JP', 'zh-TW', 'vi-VN']
+
+  // 修改排序逻辑
+  const filteredAndSortedTranslations = translations
+    ?.filter(translation => {
+      const translationGroup = groupedTranslations[translation] || []
+
+      const matchesSearch = translationGroup.some(item =>
+        item.column_value?.toLowerCase().includes(searchValue.toLowerCase())
+      )
+
+      const hasEmptyOrIncomplete = (
+        translationGroup.some(item => !item.column_value || item.column_value.trim() === '') ||
+        translationGroup.length < SUPPORTED_LANGUAGES.length ||
+        SUPPORTED_LANGUAGES.some(lang =>
+          !translationGroup.some(item => item.language_script_code === lang)
+        )
+      )
+
+      return matchesSearch && (!showEmptyOnly || hasEmptyOrIncomplete)
+    })
+    ?.sort((a, b) => {
+      // 如果是默认排序，保持原数组顺序的倒序
+      if (sortDirection === 'default') {
+        return -1; // 保持原数组的倒序
+      }
+
+      const columnA = a.split('&')[0].toLowerCase()
+      const columnB = b.split('&')[0].toLowerCase()
+      return sortDirection === 'asc'
+        ? columnA.localeCompare(columnB)
+        : columnB.localeCompare(columnA)
+    })
+
+  // 处理排序点击
+  const handleSortClick = () => {
+    setSortDirection(prev => {
+      switch (prev) {
+        case 'default':
+          return 'asc';
+        case 'asc':
+          return 'desc';
+        case 'desc':
+          return 'default';
+        default:
+          return 'default';
+      }
+    });
+  };
+
+  // 获取排序图标
+  const getSortIcon = () => {
+    switch (sortDirection) {
+      case 'default':
+        return '↑↓';
+      case 'asc':
+        return '↑';
+      case 'desc':
+        return '↓';
+      default:
+        return '';
+    }
+  };
+
   useEffect(() => {
     if (typeof window !== 'undefined' && window.parent !== window) {
       setIsIframe(true)
@@ -114,6 +186,31 @@ export default function Index() {
       setIsIframe(false)
     }
   }, [])
+
+  useEffect(() => {
+    window.scrollTo(0, scrollPosition)
+  }, [translations])
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300)
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
+  }
+
+  const handleDeleteClick = (translation) => {
+    setDeletingId(translation)
+    setScrollPosition(window.scrollY)
+  }
 
   return (
     <>
@@ -123,37 +220,58 @@ export default function Index() {
         <Link href="/export">To Export Translations</Link>
       </Flex>
       <Form method="get">
-        <Flex gap="2">
-          <Box>
-            <Select.Root defaultValue={appName} name="app_name">
-              <Select.Trigger placeholder="Select App Name" />
-              <Select.Content>
-                <Select.Group>
-                  <Select.Label>App Name</Select.Label>
-                  {appNames.map(name => (
-                    <Select.Item key={name} value={name}>{name}</Select.Item>
-                  ))}
-                </Select.Group>
-              </Select.Content>
-            </Select.Root>
-          </Box>
-          <Box maxWidth="450px">
-            <TextField.Root
-              defaultValue={columnNames}
-              placeholder="Filter by column name"
-              name="column_name"
-              onChange={(e) => e.target.value = e.target.value.trim()}
-              style={{ width: '240px' }}
+        <Flex gap="2" direction="column">
+          <Flex gap="2">
+            <Box>
+              <Select.Root defaultValue={appName} name="app_name">
+                <Select.Trigger placeholder="Select App Name" />
+                <Select.Content>
+                  <Select.Group>
+                    <Select.Label>App Name</Select.Label>
+                    {appNames.map(name => (
+                      <Select.Item key={name} value={name}>{name}</Select.Item>
+                    ))}
+                  </Select.Group>
+                </Select.Content>
+              </Select.Root>
+            </Box>
+            <Box maxWidth="450px">
+              <TextField.Root
+                defaultValue={columnNames}
+                placeholder="Filter by column name"
+                name="column_name"
+                onChange={(e) => e.target.value = e.target.value.trim()}
+                style={{ width: '240px' }}
+              />
+            </Box>
+            <Box maxWidth="450px">
+              <TextField.Root
+                placeholder="Search in values"
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+                style={{ width: '240px' }}
+              />
+            </Box>
+            <Box maxWidth="100px">
+              <Button type="submit">Filter</Button>
+            </Box>
+            <Box maxWidth="100px">
+              <Button type="reset" variant="soft" onClick={() => {
+                window.location.href = '/'
+                setSearchValue('')
+              }}>Reset</Button>
+            </Box>
+          </Flex>
+          <Flex gap="2" align="center">
+            <Checkbox
+              checked={showEmptyOnly}
+              onCheckedChange={(checked) => setShowEmptyOnly(checked)}
+              id="showEmptyOnly"
             />
-          </Box>
-          <Box maxWidth="100px">
-            <Button type="submit">Filter</Button>
-          </Box>
-          <Box maxWidth="100px">
-            <Button type="reset" variant="soft" onClick={() => {
-              window.location.href = '/'
-            }}>Reset</Button>
-          </Box>
+            <label htmlFor="showEmptyOnly" style={{ cursor: 'pointer' }}>
+              Show translations with empty values or incomplete languages
+            </label>
+          </Flex>
         </Flex>
       </Form>
       <Box mt="2">
@@ -163,7 +281,12 @@ export default function Index() {
         <Table.Root style={{ width: '100%' }}>
           <Table.Header>
             <Table.Row>
-              <Table.ColumnHeaderCell style={{ maxWidth: '140px' }}>Column Name</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell
+                style={{ minWidth: '140px', maxWidth: '160px', cursor: 'pointer' }}
+                onClick={handleSortClick}
+              >
+                Column Name {getSortIcon()}
+              </Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell style={{ minWidth: '150px' }}>Value</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell style={{ maxWidth: '200px' }}>
                 App Name
@@ -172,9 +295,9 @@ export default function Index() {
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {translations?.map((translation) => (
+            {filteredAndSortedTranslations?.map((translation) => (
               <Table.Row key={translation}>
-                <Table.Cell style={{ maxWidth: '140px' }}>{translation.split('&')[0]}</Table.Cell>
+                <Table.Cell style={{ minWidth: '140px', maxWidth: '160px' }}>{translation.split('&')[0]}</Table.Cell>
                 <Table.Cell>
                   {editingIds[translation] ? (
                     <Form
@@ -227,7 +350,6 @@ export default function Index() {
                       </Box>
                     </Form>
                   ) : (
-                    // 显示分组后的所有值
                     groupedTranslations[translation]?.map(
                       (groupedTranslation) => (
                         <div key={groupedTranslation.id}>
@@ -275,7 +397,7 @@ export default function Index() {
                           highContrast
                           type="submit"
                           disabled={!appName && !columnNames}
-                          onClick={() => setDeletingId(translation)}
+                          onClick={() => handleDeleteClick(translation)}
                         >
                           Delete
                         </Button>
@@ -312,6 +434,26 @@ export default function Index() {
           </Flex>
         </AlertDialog.Content>
       </AlertDialog.Root>
+      {showScrollTop && (
+        <Button
+          onClick={scrollToTop}
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            zIndex: 1000,
+            borderRadius: '50%',
+            width: '40px',
+            height: '40px',
+            padding: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          ↑
+        </Button>
+      )}
     </>
   )
 }

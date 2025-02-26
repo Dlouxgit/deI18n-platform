@@ -1,10 +1,12 @@
-import { json, useActionData, Form, useNavigation } from '@remix-run/react'
+import { json, useActionData, Form, useNavigation, useLoaderData } from '@remix-run/react'
 import flattenJson from './utils'
-import { Box, Button, Flex, Heading, TextField, Link, Switch, Badge, Spinner } from '@radix-ui/themes'
+import { Box, Button, Flex, Heading, TextField, Link, Switch, Badge, Spinner, Select, Text } from '@radix-ui/themes'
 import {
   getDbConnection,
-  mutilInsertTranslation
+  mutilInsertTranslation,
+  getAllAppNames
 } from '../service/i18n'
+import { useState } from 'react'
 
 export const action = async ({ request }) => {
   const formData = await request.formData()
@@ -99,56 +101,197 @@ export const action = async ({ request }) => {
   }
 }
 
+export const loader = async () => {
+  const connection = await getDbConnection();
+  try {
+    const appNames = await getAllAppNames(connection);
+    return json({ appNames });
+  } catch (error) {
+    return json({ error: error.message }, { status: 500 });
+  } finally {
+    connection.release();
+  }
+}
+
 export default function Import() {
   const actionData = useActionData()
+  const { appNames } = useLoaderData()
   const navigation = useNavigation()
   const isSubmitting = navigation.state === 'submitting'
+  const [useSelect, setUseSelect] = useState(true)
+  const [dragActive, setDragActive] = useState(false)
+  const [selectedFile, setSelectedFile] = useState(null)
+
+  const handleDrag = (e) => {
+    e.preventDefault()
+    setDragActive(true)
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+
+    const file = e.dataTransfer.files[0]
+    if (file) {
+      const input = document.querySelector('input[type="file"]')
+      const dataTransfer = new DataTransfer()
+      dataTransfer.items.add(file)
+      input.files = dataTransfer.files
+      setSelectedFile(file)
+    }
+  }
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      setSelectedFile(file)
+    }
+  }
 
   return (
-    <Box className="import-container">
-      <Heading className="import-title">Import Translations</Heading>
-      <Form method="post" encType="multipart/form-data" className="import-form">
-        <Flex gap="2" className="import-flex">
-          <Box maxWidth="500px" className="import-box">
-            <TextField.Root
-              placeholder="Insert to app_name"
-              name="app_name"
-              className="import-textfield"
-              style={{ width: '340px' }}
-              onChange={(e) => e.target.value = e.target.value.trim()}
-            />
-          </Box>
-          <Box maxWidth="100px" className="import-box">
-            <Button type="submit" className="import-button" disabled={isSubmitting}>
+    <Box className="import-container" style={{ maxWidth: '800px', margin: '40px auto', padding: '20px' }}>
+      <Heading size="6" mb="4" style={{ color: '#1a1a1a' }}>Import Translations</Heading>
+      <Form method="post" encType="multipart/form-data" className="import-form" onDragEnter={handleDrag}>
+        <Flex direction="column" gap="4">
+          <Flex gap="3" align="center">
+            <Box style={{ flex: 1 }}>
+              {useSelect ? (
+                <Select.Root name="app_name">
+                  <Select.Trigger
+                    placeholder="Select App Name"
+                    style={{
+                      width: '100%',
+                      height: '40px',
+                      backgroundColor: 'white'
+                    }}
+                  />
+                  <Select.Content>
+                    <Select.Group>
+                      <Select.Label>App Name</Select.Label>
+                      {appNames.map(name => (
+                        <Select.Item key={name} value={name}>{name}</Select.Item>
+                      ))}
+                    </Select.Group>
+                  </Select.Content>
+                </Select.Root>
+              ) : (
+                <TextField.Root
+                  placeholder="Enter app name"
+                  name="app_name"
+                  style={{ width: '100%' }}
+                  onChange={(e) => e.target.value = e.target.value.trim()}
+                />
+              )}
+            </Box>
+            <Button
+              variant="soft"
+              onClick={() => setUseSelect(!useSelect)}
+              type="button"
+              style={{ minWidth: '120px' }}
+            >
+              {useSelect ? 'Switch to Input' : 'Switch to Select'}
+            </Button>
+          </Flex>
+
+          <Flex gap="3" align="center">
+            <Box
+              style={{
+                flex: 1,
+                position: 'relative',
+                padding: '30px 20px',
+                border: `2px dashed ${dragActive ? '#3b82f6' : '#e5e7eb'}`,
+                borderRadius: '8px',
+                backgroundColor: dragActive ? 'rgba(59, 130, 246, 0.05)' : 'white',
+                textAlign: 'center',
+                transition: 'all 0.3s ease'
+              }}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              <input
+                type="file"
+                name="file"
+                accept=".json,application/json"
+                onChange={handleFileSelect}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  opacity: 0,
+                  cursor: 'pointer'
+                }}
+              />
+              <div>
+                {selectedFile ? (
+                  <div style={{ wordBreak: 'break-word' }}>
+                    <strong>Selected:</strong> {selectedFile.name}
+                    <br />
+                    <span style={{ fontSize: '12px', color: '#666' }}>
+                      {(selectedFile.size / 1024).toFixed(2)} KB
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ color: '#666', marginBottom: '4px' }}>
+                      Drag and drop JSON file here
+                    </div>
+                    <div style={{ fontSize: '14px', color: '#888' }}>
+                      or click to browse
+                    </div>
+                  </>
+                )}
+              </div>
+            </Box>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              style={{
+                minWidth: '120px',
+                height: '40px'
+              }}
+            >
               {isSubmitting ? <Spinner /> : 'Import'}
             </Button>
-          </Box>
-          <Box maxWidth="200px" className="import-box">
-            <input
-              type="file"
-              name="file"
-              accept=".json"
-              className="import-input"
-            />
-          </Box>
+          </Flex>
+
+          <Flex align="center" gap="2" mt="2">
+            <strong style={{ color: '#374151' }}>Overwrite database?</strong>
+            <Switch name="overwrite" />
+          </Flex>
         </Flex>
-        <Box maxWidth="200px" mt="2" className="import-box">
-          <strong>Overwrite database</strong>?
-          <br />
-          <Switch name="overwrite" />
-        </Box>
       </Form>
-      {actionData?.success && (
-        <p className="import-message">{actionData.message}</p>
-      )}
-      {actionData?.error && <p className="import-error">{actionData.error}</p>}
-      {actionData?.records && (
-        <Badge color="orange">{actionData.records.length} records import conflict</Badge>
-      )}
-      {actionData?.records?.map((record) => (
-        <p className="import-record" key={record}>{record}</p>
-      ))}
-      <Link href="/" className="import-link">
+
+      <Box mt="4">
+        {actionData?.success && (
+          <Text color="green" style={{ marginBottom: '8px' }}>{actionData.message}</Text>
+        )}
+        {actionData?.error && (
+          <Text color="red" style={{ marginBottom: '8px' }}>{actionData.error}</Text>
+        )}
+        {actionData?.records && (
+          <Box mb="2">
+            <Badge color="orange">{actionData.records.length} records import conflict</Badge>
+          </Box>
+        )}
+        {actionData?.records?.map((record) => (
+          <Text size="2" color="gray" key={record}>{record}</Text>
+        ))}
+      </Box>
+
+      <Link
+        href="/"
+        style={{
+          display: 'inline-block',
+          marginTop: '20px',
+          color: '#3b82f6',
+          textDecoration: 'none'
+        }}
+      >
         Back to translations
       </Link>
     </Box>
