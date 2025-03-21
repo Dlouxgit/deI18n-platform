@@ -19,6 +19,15 @@ import {
 export const action = async ({ request }) => {
   const formData = await request.formData()
   const { app_name, column_name, ...values } = Object.fromEntries(formData)
+
+  if (!app_name?.trim()) {
+    return json({ error: "App name cannot be empty", errors: {} }, { status: 400 })
+  }
+
+  if (!column_name?.trim()) {
+    return json({ error: "Column name cannot be empty", errors: {} }, { status: 400 })
+  }
+
   const connection = await getDbConnection()
   let errors = {}
   try {
@@ -58,8 +67,27 @@ export default function Add() {
   const [useSelect, setUseSelect] = useState(true)
   const [column_name, setColumnName] = useState('')
   const [translations, setTranslations] = useState({})
-
+  const [appNameError, setAppNameError] = useState('')
+  const [columnNameError, setColumnNameError] = useState('')
   const isSubmitting = navigation.state === 'submitting'
+
+  const handleSubmit = (e) => {
+    const formData = new FormData(e.target)
+    const appName = formData.get('app_name')
+    const columnName = formData.get('column_name')
+    if (!appName?.trim()) {
+      e.preventDefault()
+      setAppNameError('App name cannot be empty')
+      return
+    }
+    if (!columnName?.trim()) {
+      e.preventDefault()
+      setColumnNameError('Column name cannot be empty')
+      return
+    }
+    setAppNameError('')
+    setColumnNameError('')
+  }
 
   return (
     <Box style={{ maxWidth: '800px', margin: '40px auto', padding: '20px' }}>
@@ -70,12 +98,17 @@ export default function Add() {
         <Link href="/import">To Import Translations</Link>
       </Box>
 
-      <Form method="post">
+      <Form method="post" onSubmit={handleSubmit}>
         <Flex direction="column" gap="4">
           <Flex gap="3" align="center">
             <Box style={{ flex: 1 }}>
               {useSelect ? (
-                <Select.Root name="app_name">
+                <Select.Root
+                  name="app_name"
+                  onValueChange={() => {
+                    setAppNameError('')
+                  }}
+                >
                   <Select.Trigger
                     placeholder="Select App Name"
                     style={{
@@ -98,8 +131,14 @@ export default function Add() {
                   placeholder="Enter app name"
                   name="app_name"
                   style={{ width: '100%' }}
-                  onChange={(e) => e.target.value = e.target.value.trim()}
+                  onChange={(e) => {
+                    e.target.value = e.target.value.trim()
+                    setAppNameError('')
+                  }}
                 />
+              )}
+              {appNameError && (
+                <p style={{ color: 'red', margin: '4px 0 0' }}>{appNameError}</p>
               )}
             </Box>
             <Button
@@ -116,8 +155,14 @@ export default function Add() {
               placeholder="Insert key"
               name="column_name"
               value={column_name}
-              onChange={e => setColumnName(e.target.value)}
+              onChange={(e) => {
+                setColumnName(e.target.value.trim())
+                setColumnNameError('')
+              }}
             />
+            {columnNameError && (
+              <p style={{ color: 'red', margin: '4px 0 0' }}>{columnNameError}</p>
+            )}
           </Box>
           <Heading>翻译文案</Heading>
           {['zh-CN', 'en-US', 'ja-JP', 'zh-TW', 'vi-VN'].map((language) => (

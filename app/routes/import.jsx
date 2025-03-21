@@ -14,6 +14,10 @@ export const action = async ({ request }) => {
   const appName = formData.get('app_name') || null
   const overwrite = formData.get('overwrite') === 'on' ? true : false // 根据 Switch 的状态决定是否增加 overwrite 参数
 
+  if (!appName?.trim()) {
+    return json({ error: "App name cannot be empty", errors: {} }, { status: 400 })
+  }
+
   if (!file || !(file instanceof File)) {
     return json({ error: 'No file uploaded' }, { status: 400 })
   }
