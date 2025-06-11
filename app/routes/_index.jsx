@@ -1,5 +1,5 @@
-import { json, useLoaderData, Form } from '@remix-run/react'
-import { useState, useEffect } from 'react'
+import { json, useLoaderData, Form, useFetcher } from '@remix-run/react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Table,
   Button,
@@ -113,6 +113,10 @@ export default function Index() {
   const [showEmptyOnly, setShowEmptyOnly] = useState(false)
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [sortDirection, setSortDirection] = useState('default')
+  const [translating, setTranslating] = useState(false)
+  const [currentTranslation, setCurrentTranslation] = useState(null)
+  const translateFetcher = useFetcher()
+  const formRefs = useRef({})
 
   // 所有支持的语言列表
   const SUPPORTED_LANGUAGES = ['zh-CN', 'en-US', 'ja-JP', 'zh-TW', 'vi-VN']
@@ -178,6 +182,119 @@ export default function Index() {
         return '';
     }
   };
+
+  // 处理AI翻译
+  const handleAiTranslate = (translation, formElement) => {
+    const translationGroup = groupedTranslations[translation] || []
+    const chineseTranslation = translationGroup.find(item => item.language_script_code === 'zh-CN')
+
+    console.log('翻译组:', translationGroup)
+    console.log('中文翻译:', chineseTranslation)
+    console.log('表单元素:', formElement)
+
+    // 保存表单引用
+    formRefs.current[translation] = formElement
+
+    // 如果没有找到中文翻译，尝试创建一个空的中文翻译
+    let chineseText = ''
+
+    const zhCNInputName = `column_value_zh-CN&${groupedTranslations[translation]?.find(item => item.language_script_code === 'zh-CN')?.id || ''}`
+    const zhCNInput = formElement.querySelector(`[name="${zhCNInputName}"]`)
+
+    if (zhCNInput && zhCNInput.value) {
+      chineseText = zhCNInput.value
+    }
+
+    if (!chineseText.trim()) {
+      alert('需要有中文内容才能进行AI翻译')
+      return
+    }
+
+    setTranslating(true)
+    setCurrentTranslation(translation)
+
+    // 获取需要翻译的目标语言
+    const targetLanguages = SUPPORTED_LANGUAGES.filter(lang =>
+      lang !== 'zh-CN'
+    )
+
+    const formData = new FormData()
+    formData.append('chineseText', chineseText)
+    targetLanguages.forEach(lang => formData.append('targetLanguages', lang))
+
+    console.log('发送翻译请求:', chineseText, targetLanguages)
+
+    translateFetcher.submit(formData, {
+      method: 'post',
+      action: '/api/translate',
+      encType: 'multipart/form-data',
+    })
+  }
+
+  // 处理翻译结果
+  useEffect(() => {
+    if (translateFetcher.data && translateFetcher.state === 'idle' && currentTranslation) {
+      setTranslating(false)
+
+      console.log('翻译完成，结果:', translateFetcher.data)
+
+      if (translateFetcher.data.error) {
+        alert(`翻译失败: ${translateFetcher.data.error}`)
+        return
+      }
+
+      // 获取翻译结果
+      const translations = translateFetcher.data.translations
+
+      // 更新表单中的翻译值
+      if (translations && formRefs.current[currentTranslation]) {
+        const form = formRefs.current[currentTranslation]
+        console.log('找到表单元素:', form)
+
+        // 创建一个数组来存储成功更新的语言
+        const updatedLanguages = []
+
+        Object.entries(translations).forEach(([lang, value]) => {
+          try {
+            // 查找对应语言的输入框
+            const inputName = `column_value_${lang}&${groupedTranslations[currentTranslation]?.find(item => item.language_script_code === lang)?.id || ''}`
+            console.log('查找输入框:', inputName)
+
+            // 两种方式尝试获取输入元素
+            let input = form.querySelector(`[name="${inputName}"]`)
+
+            // 如果找不到，尝试使用document.querySelector
+            if (!input) {
+              input = document.querySelector(`form [name="${inputName}"]`)
+            }
+
+            if (input) {
+              console.log(`设置 ${lang} 的翻译:`, value)
+              // 直接设置值
+              input.value = value
+
+              // 创建并触发change事件
+              const event = new Event('input', { bubbles: true })
+              input.dispatchEvent(event)
+
+              updatedLanguages.push(lang)
+            } else {
+              console.log(`未找到 ${lang} 的输入框`)
+            }
+          } catch (error) {
+            console.error(`更新 ${lang} 翻译时出错:`, error)
+          }
+        })
+
+        // 显示翻译成功消息
+        if (updatedLanguages.length > 0) {
+          alert(`Translation successful, updated translations for ${updatedLanguages.join(', ')}. Please review and save the translation results.`)
+        }
+      } else {
+        console.log('未找到表单引用或翻译结果')
+      }
+    }
+  }, [translateFetcher.data, translateFetcher.state, currentTranslation, groupedTranslations])
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.parent !== window) {
@@ -305,6 +422,7 @@ export default function Index() {
                       onSubmit={() =>
                         setEditingIds({ ...editingIds, [translation]: false })
                       }
+                      ref={form => { formRefs.current[translation] = form }}
                     >
                       <Flex gap="3">
                         <Box width="328px">
@@ -343,11 +461,28 @@ export default function Index() {
                           ))}
                         </Box>
                       </Flex>
-                      <Box maxWidth="100px" mt="2">
-                        <Button type="submit" onClick={() => {
-                          window.parent.postMessage({ type: 'save' }, '*')
-                        }}>Save</Button>
-                      </Box>
+                      <Flex gap="2" mt="2">
+                        <Box>
+                          <Button type="submit" onClick={() => {
+                            window.parent.postMessage({ type: 'save' }, '*')
+                          }}>Save</Button>
+                        </Box>
+                        <Box>
+                          <Button
+                            type="button"
+                            variant="soft"
+                            color="amber"
+                            onClick={(e) => {
+                              // 获取当前表单元素
+                              const formElement = e.target.closest('form')
+                              handleAiTranslate(translation, formElement)
+                            }}
+                            disabled={translating}
+                          >
+                            {translating && currentTranslation === translation ? 'Translating...' : 'AI Translate (Based on Chinese)'}
+                          </Button>
+                        </Box>
+                      </Flex>
                     </Form>
                   ) : (
                     groupedTranslations[translation]?.map(
