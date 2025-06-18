@@ -268,7 +268,7 @@ export default function Index() {
               input = document.querySelector(`form [name="${inputName}"]`)
             }
 
-            if (input) {
+            if (input && !input?.value) {
               console.log(`设置 ${lang} 的翻译:`, value)
               // 直接设置值
               input.value = value
