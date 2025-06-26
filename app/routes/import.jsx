@@ -167,7 +167,6 @@ export default function Import() {
                     style={{
                       width: '100%',
                       height: '40px',
-                      backgroundColor: 'white'
                     }}
                   />
                   <Select.Content>

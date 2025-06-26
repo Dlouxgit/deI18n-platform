@@ -113,8 +113,7 @@ export default function Add() {
                     placeholder="Select App Name"
                     style={{
                       width: '100%',
-                      height: '40px',
-                      backgroundColor: 'white'
+                      height: '40px'
                     }}
                   />
                   <Select.Content>
