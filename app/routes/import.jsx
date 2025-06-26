@@ -155,7 +155,7 @@ export default function Import() {
 
   return (
     <Box className="import-container" style={{ maxWidth: '800px', margin: '40px auto', padding: '20px' }}>
-      <Heading size="6" mb="4" style={{ color: '#1a1a1a' }}>Import Translations</Heading>
+      <Heading size="6" mb="4">Import Translations</Heading>
       <Form method="post" encType="multipart/form-data" className="import-form" onDragEnter={handleDrag}>
         <Flex direction="column" gap="4">
           <Flex gap="3" align="center">
@@ -264,7 +264,7 @@ export default function Import() {
           </Flex>
 
           <Flex align="center" gap="2" mt="2">
-            <strong style={{ color: '#374151' }}>Overwrite database?</strong>
+            <strong>Overwrite database?</strong>
             <Switch name="overwrite" />
           </Flex>
         </Flex>
