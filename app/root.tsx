@@ -6,8 +6,9 @@ import {
   ScrollRestoration,
 } from "@remix-run/react";
 import type { LinksFunction } from "@remix-run/node";
-import { Theme, Box, Container } from "@radix-ui/themes";
+import { Theme, Box, Container, Flex, Button } from "@radix-ui/themes";
 import "@radix-ui/themes/styles.css";
+import { useState, useEffect } from "react";
 
 import "./tailwind.css";
 
@@ -24,6 +25,58 @@ export const links: LinksFunction = () => [
   },
 ];
 
+// 暗色模式切换组件
+function DarkModeToggle() {
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    // 检查本地存储或系统偏好
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const shouldBeDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+
+    setIsDark(shouldBeDark);
+    updateTheme(shouldBeDark);
+  }, []);
+
+  const updateTheme = (dark: boolean) => {
+    const html = document.documentElement;
+    if (dark) {
+      html.classList.add('dark');
+    } else {
+      html.classList.remove('dark');
+    }
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+  };
+
+  const toggleDarkMode = () => {
+    const newIsDark = !isDark;
+    setIsDark(newIsDark);
+    updateTheme(newIsDark);
+  };
+
+  return (
+    <Button
+      variant="soft"
+      onClick={toggleDarkMode}
+      style={{
+        cursor: 'pointer',
+        padding: '8px 12px',
+        borderRadius: '6px',
+        border: 'none',
+        background: 'var(--gray-a3)',
+        color: 'var(--gray-12)',
+        fontSize: '14px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px'
+      }}
+    >
+      {isDark ? '☀️' : '🌙'} {isDark ? 'Light' : 'Dark'}
+    </Button>
+  );
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html>
@@ -37,6 +90,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Theme>
           <Box style={{ background: "var(--gray-a2)", borderRadius: "var(--radius-3)" }} py="4">
             <Container maxWidth="90%" align="center">
+              {/* 顶部导航栏 */}
+              <Flex justify="end" mb="4">
+                <DarkModeToggle />
+              </Flex>
               <Box>
                 {children}
               </Box>
