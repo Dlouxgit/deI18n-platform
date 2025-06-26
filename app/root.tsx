@@ -6,7 +6,7 @@ import {
   ScrollRestoration,
 } from "@remix-run/react";
 import type { LinksFunction } from "@remix-run/node";
-import { Theme, Box, Container, Flex, Button } from "@radix-ui/themes";
+import { Theme, Box, Container, Button } from "@radix-ui/themes";
 import "@radix-ui/themes/styles.css";
 import { useState, useEffect } from "react";
 
@@ -60,6 +60,10 @@ function DarkModeToggle() {
       variant="soft"
       onClick={toggleDarkMode}
       style={{
+        position: 'absolute',
+        top: '20px',
+        right: '20px',
+        zIndex: 1000,
         cursor: 'pointer',
         padding: '8px 12px',
         borderRadius: '6px',
@@ -69,7 +73,8 @@ function DarkModeToggle() {
         fontSize: '14px',
         display: 'flex',
         alignItems: 'center',
-        gap: '4px'
+        gap: '4px',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
       }}
     >
       {isDark ? '☀️' : '🌙'} {isDark ? 'Light' : 'Dark'}
@@ -88,12 +93,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <Theme>
+          <DarkModeToggle />
           <Box style={{ background: "var(--gray-a2)", borderRadius: "var(--radius-3)" }} py="4">
             <Container maxWidth="90%" align="center">
-              {/* 顶部导航栏 */}
-              <Flex justify="end" mb="4">
-                <DarkModeToggle />
-              </Flex>
               <Box>
                 {children}
               </Box>
