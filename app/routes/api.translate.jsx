@@ -38,7 +38,8 @@ export async function action({ request }) {
             'X-Title': 'i18n Translation App',
           },
           body: JSON.stringify({
-            model: 'deepseek/deepseek-chat-v3-0324:free',
+            model: 'deepseek/deepseek-chat-v3.1:free',
+            // model: 'deepseek/deepseek-chat-v3-0324:free',
             messages: [
               {
                 role: 'user',
