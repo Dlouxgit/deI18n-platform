@@ -25,7 +25,7 @@ export async function action({ request }) {
     const languageList = targetLanguages
       .map((lang) => `${lang}: ${getLanguageName(lang)}`)
       .join('\n');
-    const prompt = `请将以下中文文本翻译成下列语言。\n\n语言列表:\n${languageList}\n\n请返回严格的JSON对象，键为语言代码，值为对应译文，不要包含额外说明。确保保持原文格式。\n\n中文文本:\n${chineseText}`;
+    const prompt = `你是一名专业的翻译助手。请将下面的中文文本分别翻译成所有列出的目标语言。\n\n严格要求:\n1. 输出必须是一个 JSON 对象，键为语言代码，值为对应语言撰写的译文。\n2. 每个译文必须使用目标语言书写，绝对不能保留中文原文。\n3. en-US 的译文必须是自然流畅的英文句子。\n4. 保留原文中的格式和语气，不要添加解释或前缀。\n5. 只输出 JSON，不要包含 Markdown 代码块或额外文字。\n\n语言列表:\n${languageList}\n\n中文文本:\n${chineseText}`;
 
     try {
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -37,9 +37,13 @@ export async function action({ request }) {
           'X-Title': 'i18n Translation App',
         },
         body: JSON.stringify({
-          model: 'alibaba/tongyi-deepresearch-30b-a3b:free',
+          model: 'google/gemini-2.0-flash-exp:free',
           // model: 'deepseek/deepseek-chat-v3-0324:free',
           messages: [
+            {
+              role: 'system',
+              content: 'You are a meticulous translation engine. Always respond with valid JSON where each key is the requested language code and each value is a fluent translation written entirely in that language.',
+            },
             {
               role: 'user',
               content: prompt,
@@ -80,7 +84,13 @@ export async function action({ request }) {
           return json({ error: `缺少 ${lang} 的翻译结果` }, { status: 500 });
         }
 
-        translations[lang] = typeof translation === 'string' ? translation.trim() : translation;
+        const normalized = typeof translation === 'string' ? translation.trim() : translation;
+
+        if (typeof normalized !== 'string' || !normalized) {
+          console.error(`翻译 ${lang} 的返回格式不正确:`, translation);
+          return json({ error: `翻译 ${lang} 的返回格式不正确` }, { status: 500 });
+        }
+        translations[lang] = normalized;
       }
     } catch (error) {
       console.error('翻译服务请求失败:', error);
