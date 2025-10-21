@@ -37,7 +37,7 @@ export async function action({ request }) {
           'X-Title': 'i18n Translation App',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.0-flash-exp:free',
+          model: 'deepseek/deepseek-chat-v3.1:free',
           // model: 'deepseek/deepseek-chat-v3-0324:free',
           messages: [
             {
