@@ -336,7 +336,7 @@ export default function Index() {
         <Link href="/import">To Import Translations</Link>
         <Link href="/export">To Export Translations</Link>
       </Flex>
-      <Form method="get">
+      <Form method="get" preventScrollReset>
         <Flex gap="2" direction="column">
           <Flex gap="2">
             <Box>
@@ -419,6 +419,7 @@ export default function Index() {
                   {editingIds[translation] ? (
                     <Form
                       method="post"
+                      preventScrollReset
                       onSubmit={() =>
                         setEditingIds({ ...editingIds, [translation]: false })
                       }
@@ -557,7 +558,7 @@ export default function Index() {
               </Button>
             </AlertDialog.Cancel>
             <AlertDialog.Action>
-              <Form method="post">
+              <Form method="post" preventScrollReset>
                 <input type="hidden" name="column_name" value={deletingId?.split('&')[0]} />
                 <input type="hidden" name="app_name" value={deletingId?.split('&')[1]} />
                 <input type="hidden" name="_action" value="delete" />
