@@ -38,7 +38,7 @@ export async function action({ request }) {
             'X-Title': 'i18n Translation App',
           },
           body: JSON.stringify({
-            model: 'deepseek/deepseek-r1-0528-qwen3-8b:free',
+            model: 'alibaba/tongyi-deepresearch-30b-a3b:free',
             // model: 'deepseek/deepseek-chat-v3-0324:free',
             messages: [
               {
