@@ -22,46 +22,69 @@ export async function action({ request }) {
     }
 
     const translations = {};
+    const languageList = targetLanguages
+      .map((lang) => `${lang}: ${getLanguageName(lang)}`)
+      .join('\n');
+    const prompt = `请将以下中文文本翻译成下列语言。\n\n语言列表:\n${languageList}\n\n请返回严格的JSON对象，键为语言代码，值为对应译文，不要包含额外说明。确保保持原文格式。\n\n中文文本:\n${chineseText}`;
 
-    // 为每种目标语言创建翻译提示
-    for (const lang of targetLanguages) {
-      console.log(`开始翻译 ${lang}`);
-      const prompt = `请将以下中文文本翻译成${getLanguageName(lang)}，只需要返回翻译结果，不要包含任何解释或额外文本：\n\n${chineseText}`;
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'HTTP-Referer': 'https://doors.online',
+          'X-Title': 'i18n Translation App',
+        },
+        body: JSON.stringify({
+          model: 'alibaba/tongyi-deepresearch-30b-a3b:free',
+          // model: 'deepseek/deepseek-chat-v3-0324:free',
+          messages: [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('翻译API错误:', errorData);
+        return json({ error: `翻译失败: ${errorData.error?.message || '未知错误'}` }, { status: 500 });
+      }
+
+      const data = await response.json();
+      const rawContent = data?.choices?.[0]?.message?.content?.trim();
+
+      if (!rawContent) {
+        console.error('翻译结果为空:', data);
+        return json({ error: '翻译结果为空' }, { status: 500 });
+      }
+
+      const cleanedContent = rawContent.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+      let parsedTranslations;
 
       try {
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-            'HTTP-Referer': 'https://doors.online',
-            'X-Title': 'i18n Translation App',
-          },
-          body: JSON.stringify({
-            model: 'alibaba/tongyi-deepresearch-30b-a3b:free',
-            // model: 'deepseek/deepseek-chat-v3-0324:free',
-            messages: [
-              {
-                role: 'user',
-                content: prompt,
-              },
-            ],
-          }),
-        });
+        parsedTranslations = JSON.parse(cleanedContent);
+      } catch (parseError) {
+        console.error('解析翻译结果失败:', cleanedContent, parseError);
+        return json({ error: '解析翻译结果失败，请稍后重试' }, { status: 500 });
+      }
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error(`翻译API错误 (${lang}):`, errorData);
-          return json({ error: `翻译失败: ${errorData.error?.message || '未知错误'}` }, { status: 500 });
+      for (const lang of targetLanguages) {
+        const translation = parsedTranslations[lang];
+
+        if (!translation) {
+          console.error(`缺少 ${lang} 的翻译:`, parsedTranslations);
+          return json({ error: `缺少 ${lang} 的翻译结果` }, { status: 500 });
         }
 
-        const data = await response.json();
-        console.log(`${lang} 翻译结果:`, data.choices[0].message.content);
-        translations[lang] = data.choices[0].message.content.trim();
-      } catch (error) {
-        console.error(`翻译 ${lang} 时出错:`, error);
-        return json({ error: `翻译 ${lang} 时出错: ${error.message}` }, { status: 500 });
+        translations[lang] = typeof translation === 'string' ? translation.trim() : translation;
       }
+    } catch (error) {
+      console.error('翻译服务请求失败:', error);
+      return json({ error: `翻译服务请求失败: ${error.message}` }, { status: 500 });
     }
 
     console.log('所有翻译完成:', translations);
