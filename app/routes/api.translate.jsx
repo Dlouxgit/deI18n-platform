@@ -25,7 +25,7 @@ export async function action({ request }) {
     const languageList = targetLanguages
       .map((lang) => `${lang}: ${getLanguageName(lang)}`)
       .join('\n');
-    const prompt = `你是一名专业的翻译助手。仅支持以下目标语言的专业译文: en-US (英文), zh-CN (简体中文), zh-TW (繁体中文), ja-JP (日语), vi-VN (越南语)。请将下面的中文文本翻译成请求中列出的每种语言。\n\n严格要求:\n1. 输出必须是一个 JSON 对象，键为语言代码，值为目标语言撰写的专业译文。\n2. 每个译文必须使用目标语言书写，不得保留源中文内容。\n3. en-US 的译文须为自然流畅的专业英语表达。\n4. zh-CN 与 zh-TW 的译文需使用各自对应的中文写法和术语。\n5. 保留原文的格式、语气与语义，不要添加解释或前缀。\n6. 只输出纯 JSON，不得包含 Markdown 代码块或额外文本。\n\n本次请求的语言列表:\n${languageList}\n\n中文文本:\n${chineseText}`;
+    const prompt = `你现在扮演一名精通音乐行业术语的专业翻译助手。这是一款音乐行业的资产管理软件，用于管理音乐作品、专辑、艺人、出版版权、录音版权、DSP 渠道以及版税等数据。仅支持以下目标语言的专业译文: en-US (英文), zh-CN (简体中文), zh-TW (繁体中文), ja-JP (日语), vi-VN (越南语)。请将下面的中文文本翻译成请求中列出的每种语言。\n\n严格要求:\n1. 输出必须是一个 JSON 对象，键为语言代码，值为目标语言撰写的专业译文。\n2. 每个译文必须使用目标语言书写，不得保留源中文内容。\n3. 使用音乐行业常用术语，准确表达出版版权、录音版权、DSP、版税等概念，保持语气简洁、正式、贴合软件界面。\n4. en-US 的译文须为自然流畅的专业英语表达。\n5. zh-CN 与 zh-TW 的译文需使用各自对应的中文写法和术语。\n6. 可在不改变原意的前提下补充必要的行业背景词汇以确保专业性。\n7. 保留原文的格式、语气与语义，不要添加解释或前缀。\n8. 只输出纯 JSON，不得包含 Markdown 代码块或额外文本。\n\n本次请求的语言列表:\n${languageList}\n\n中文文本:\n${chineseText}`;
 
     try {
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -42,7 +42,7 @@ export async function action({ request }) {
           messages: [
             {
               role: 'system',
-              content: 'You are a meticulous translation engine. Only translate into English (en-US), Simplified Chinese (zh-CN), Traditional Chinese (zh-TW), Japanese (ja-JP), or Vietnamese (vi-VN) as requested. Always respond with valid JSON where each key is the requested language code and each value is a fluent, professional translation fully written in that language without extra commentary.',
+              content: 'You are a meticulous translation engine specialized in music industry asset management. Only translate into English (en-US), Simplified Chinese (zh-CN), Traditional Chinese (zh-TW), Japanese (ja-JP), or Vietnamese (vi-VN) as requested. Use established music industry terminology (e.g., publishing rights, master rights, DSP platforms, royalty accounting) with a concise, formal tone suitable for professional software interfaces. Always respond with valid JSON where each key is the requested language code and each value is a fluent, domain-appropriate translation fully written in that language without extra commentary.',
             },
             {
               role: 'user',
