@@ -108,7 +108,6 @@ export default function Index() {
   const [editingIds, setEditingIds] = useState({})
   const [deletingId, setDeletingId] = useState(null)
   const [isIframe, setIsIframe] = useState(true)
-  const [scrollPosition, setScrollPosition] = useState(0)
   const [searchValue, setSearchValue] = useState('')
   const [showEmptyOnly, setShowEmptyOnly] = useState(false)
   const [showScrollTop, setShowScrollTop] = useState(false)
@@ -116,6 +115,7 @@ export default function Index() {
   const [translating, setTranslating] = useState(false)
   const [currentTranslation, setCurrentTranslation] = useState(null)
   const translateFetcher = useFetcher()
+  const deleteFetcher = useFetcher()
   const formRefs = useRef({})
 
   // 所有支持的语言列表
@@ -304,9 +304,6 @@ export default function Index() {
     }
   }, [])
 
-  useEffect(() => {
-    window.scrollTo(0, scrollPosition)
-  }, [translations])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -326,7 +323,6 @@ export default function Index() {
 
   const handleDeleteClick = (translation) => {
     setDeletingId(translation)
-    setScrollPosition(window.scrollY)
   }
 
   return (
@@ -394,7 +390,7 @@ export default function Index() {
       <Box mt="2">
         <Link href="/add"><Button>Add</Button></Link>
       </Box>
-      <AlertDialog.Root>
+      <AlertDialog.Root open={!!deletingId} onOpenChange={(open) => !open && setDeletingId(null)}>
         <Table.Root style={{ width: '100%' }}>
           <Table.Header>
             <Table.Row>
@@ -524,20 +520,16 @@ export default function Index() {
                       >
                         Edit
                       </Button>
-                      <AlertDialog.Trigger
+                      <Button
+                        color="gray"
+                        variant="solid"
+                        highContrast
                         style={{ opacity: isIframe ? '0' : '1' }}
+                        disabled={!appName && !columnNames}
+                        onClick={() => handleDeleteClick(translation)}
                       >
-                        <Button
-                          color="gray"
-                          variant="solid"
-                          highContrast
-                          type="submit"
-                          disabled={!appName && !columnNames}
-                          onClick={() => handleDeleteClick(translation)}
-                        >
-                          Delete
-                        </Button>
-                      </AlertDialog.Trigger>
+                        Delete
+                      </Button>
                     </Flex>
                   )}
                 </Table.Cell>
@@ -558,14 +550,23 @@ export default function Index() {
               </Button>
             </AlertDialog.Cancel>
             <AlertDialog.Action>
-              <Form method="post" preventScrollReset>
-                <input type="hidden" name="column_name" value={deletingId?.split('&')[0]} />
-                <input type="hidden" name="app_name" value={deletingId?.split('&')[1]} />
-                <input type="hidden" name="_action" value="delete" />
-                <Button variant="solid" color="red">
-                  delete key
-                </Button>
-              </Form>
+              <Button
+                variant="solid"
+                color="red"
+                onClick={() => {
+                  deleteFetcher.submit(
+                    {
+                      column_name: deletingId?.split('&')[0],
+                      app_name: deletingId?.split('&')[1],
+                      _action: 'delete'
+                    },
+                    { method: 'post' }
+                  )
+                  setDeletingId(null)
+                }}
+              >
+                delete key
+              </Button>
             </AlertDialog.Action>
           </Flex>
         </AlertDialog.Content>
