@@ -331,6 +331,7 @@ export default function Index() {
       <Flex gap="2">
         <Link href="/import">To Import Translations</Link>
         <Link href="/export">To Export Translations</Link>
+        <Link href="/stats">To Statistics</Link>
       </Flex>
       <Form method="get" preventScrollReset>
         <Flex gap="2" direction="column">

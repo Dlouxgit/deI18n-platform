@@ -173,6 +173,23 @@ const model = {
       console.error('获取翻译失败:', error);
       throw error;
     }
+  },
+  getStats: async (connection) => {
+    try {
+      const [rows] = await connection.execute(`
+        SELECT
+          app_name,
+          COUNT(*) as count,
+          MAX(updated_at) as last_updated
+        FROM i18n_translations
+        GROUP BY app_name
+        ORDER BY last_updated DESC
+      `);
+      return rows;
+    } catch (error) {
+      console.error('获取统计信息失败:', error);
+      throw error;
+    }
   }
 };
 

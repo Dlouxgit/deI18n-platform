@@ -15,3 +15,5 @@ export const deleteTranslationByColumnAndApp = i18nModel.deleteTranslationByColu
 export const mutilInsertTranslation = i18nModel.mutilInsertTranslation
 
 export const getAllAppNames = i18nModel.getAllAppNames
+
+export const getStats = i18nModel.getStats
