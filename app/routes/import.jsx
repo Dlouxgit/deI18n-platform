@@ -47,12 +47,12 @@ export const action = async ({ request }) => {
 
     const returnRecords = []
 
-    if (!['zh-CN', 'zh-TW', 'en-US', 'ja-JP', 'vi-VN'].includes(languageCode)) {
-      const targetKeys = ['zh-CN', 'zh-TW', 'en-US', 'ja-JP', 'vi-VN']
+    if (!['zh-CN', 'zh-TW', 'en-US', 'ja-JP', 'vi-VN', 'ru-RU'].includes(languageCode)) {
+      const targetKeys = ['zh-CN', 'zh-TW', 'en-US', 'ja-JP', 'vi-VN', 'ru-RU']
       const existingKeys = keys.filter((key) => targetKeys.includes(key))
       if (existingKeys.length === 0) {
         return json(
-          { error: '文件格式错误: 缺少 zh-CN、zh-TW、en-US、ja-JP、vi-VN 语言代码' },
+          { error: '文件格式错误: 缺少 zh-CN、zh-TW、en-US、ja-JP、vi-VN、ru-RU 语言代码' },
           { status: 400 }
         )
       }

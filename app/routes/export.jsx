@@ -28,49 +28,45 @@ export default function ExportPage() {
   const [currentAppName, setCurrentAppName] = useState(selectedAppName);
   const [showEmptyOnly, setShowEmptyOnly] = useState(false);
 
-  const SUPPORTED_LANGUAGES = ['zh-CN', 'en-US', 'ja-JP', 'zh-TW', 'vi-VN'];
+  const SUPPORTED_LANGUAGES = ['zh-CN', 'en-US', 'ja-JP', 'zh-TW', 'vi-VN', 'ru-RU'];
 
   const handleDownload = async (appName) => {
     const response = await fetch(`/i18n-json?app_name=${appName}`);
     const data = await response.json();
 
-    let filteredData = data;
+    // 收集所有语言中的所有 key
+    const allKeys = new Set();
+    Object.values(data).forEach(translations => {
+      Object.keys(translations).forEach(key => allKeys.add(key));
+    });
+
+    // 补全所有语言的 key，缺失的用空字符串填充
+    const completeData = {};
+    SUPPORTED_LANGUAGES.forEach(lang => {
+      completeData[lang] = {};
+      allKeys.forEach(key => {
+        completeData[lang][key] = data[lang]?.[key] ?? '';
+      });
+    });
+
+    let filteredData = completeData;
     if (showEmptyOnly) {
-      // 重组数据结构，按 key 分组
-      const keyBasedData = {};
-      Object.entries(data).forEach(([lang, translations]) => {
-        Object.entries(translations).forEach(([key, value]) => {
-          if (!keyBasedData[key]) {
-            keyBasedData[key] = {};
-          }
-          keyBasedData[key][lang] = value;
+      // 过滤出有空值的 key
+      const incompleteKeys = [...allKeys].filter(key => {
+        return SUPPORTED_LANGUAGES.some(lang => {
+          const value = completeData[lang][key];
+          return !value || value.trim() === '';
         });
       });
 
-      // 过滤出有空值或不完整的 key
-      const incompleteKeys = Object.entries(keyBasedData).filter(([key, translations]) => {
-        const hasEmptyValues = Object.values(translations).some(value =>
-          !value || value.trim() === ''
-        );
-
-        const hasIncompleteLanguages = SUPPORTED_LANGUAGES.some(lang =>
-          !translations[lang]
-        );
-
-        return hasEmptyValues || hasIncompleteLanguages;
-      }).map(([key]) => key);
-
-      // 重新构建过滤后的数据结构
-      filteredData = Object.fromEntries(
-        Object.entries(data).map(([lang, translations]) => [
-          lang,
-          Object.fromEntries(
-            Object.entries(translations).filter(([key]) =>
-              incompleteKeys.includes(key)
-            )
-          )
-        ])
-      );
+      // 重新构建过滤后的数据结构（保留补全的空值）
+      filteredData = {};
+      SUPPORTED_LANGUAGES.forEach(lang => {
+        filteredData[lang] = {};
+        incompleteKeys.forEach(key => {
+          filteredData[lang][key] = completeData[lang][key];
+        });
+      });
     }
 
     const formattedJson = JSON.stringify(filteredData, null, 2);
