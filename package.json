@@ -5,16 +5,19 @@
   "type": "module",
   "scripts": {
     "build": "remix vite:build",
-    "dev": "remix vite:dev",
+    "dev": "node server.js",
     "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
-    "start": "remix-serve ./build/server/index.js",
+    "start": "NODE_ENV=production node server.js",
     "typecheck": "tsc"
   },
   "dependencies": {
     "@radix-ui/themes": "^3.1.4",
     "@remix-run/node": "^2.12.0",
     "@remix-run/react": "^2.12.0",
-    "@remix-run/serve": "^2.12.0",
+    "@remix-run/express": "^2.12.0",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "express": "^4.21.2",
+    "zod": "^3.24.4",
     "@vitejs/plugin-basic-ssl": "^1.1.0",
     "isbot": "^4.1.0",
     "mysql2": "^3.11.3",

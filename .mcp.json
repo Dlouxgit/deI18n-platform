@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "i18n": {
+      "type": "sse",
+      "url": "http://localhost:7999/mcp/sse"
+    }
+  }
+}
