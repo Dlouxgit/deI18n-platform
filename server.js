@@ -24,7 +24,7 @@ app.get('/mcp/sse', async (req, res) => {
   await mcpServer.connect(transport);
 });
 
-app.post('/mcp/messages', express.raw({ type: '*/*' }), async (req, res) => {
+app.post('/mcp/messages', async (req, res) => {
   const sessionId = req.query.sessionId;
   const session = sessions[sessionId];
   if (!session) {
