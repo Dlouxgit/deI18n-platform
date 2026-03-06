@@ -16,6 +16,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    depends_on:
+      - mysql
+    environment:
+      MYSQL_HOST: mysql
+      GITLAB_URL: https://gitlab.kanjian.com
+      GITLAB_TOKEN: ${GITLAB_TOKEN}
     expose:
       - "7999"
 

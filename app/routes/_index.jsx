@@ -116,7 +116,11 @@ export default function Index() {
   const [currentTranslation, setCurrentTranslation] = useState(null)
   const translateFetcher = useFetcher()
   const deleteFetcher = useFetcher()
+  const publishFetcher = useFetcher()
   const formRefs = useRef({})
+  const [publishOpen, setPublishOpen] = useState(false)
+  const [publishBranch, setPublishBranch] = useState('test')
+  const [publishResult, setPublishResult] = useState(null)
 
   // 所有支持的语言列表
   const SUPPORTED_LANGUAGES = ['zh-CN', 'en-US', 'ja-JP', 'zh-TW', 'vi-VN', 'ru-RU']
@@ -325,6 +329,24 @@ export default function Index() {
     setDeletingId(translation)
   }
 
+  // 处理发布结果
+  useEffect(() => {
+    if (publishFetcher.data && publishFetcher.state === 'idle') {
+      setPublishResult(publishFetcher.data)
+      if (publishFetcher.data.success) {
+        setPublishOpen(false)
+      }
+    }
+  }, [publishFetcher.data, publishFetcher.state])
+
+  const handlePublish = () => {
+    setPublishResult(null)
+    publishFetcher.submit(
+      { app_name: appName, target_branch: publishBranch },
+      { method: 'post', action: '/api/publish-gitlab' }
+    )
+  }
+
   return (
     <>
       <Heading>i18n Translation Platform</Heading>
@@ -389,7 +411,60 @@ export default function Index() {
         </Flex>
       </Form>
       <Box mt="2">
-        <Link href="/add"><Button>Add</Button></Link>
+        <Flex gap="2" align="center">
+          <Link href="/add"><Button>Add</Button></Link>
+          {appName && (
+            <AlertDialog.Root open={publishOpen} onOpenChange={(open) => {
+              setPublishOpen(open)
+              if (!open) setPublishResult(null)
+            }}>
+              <AlertDialog.Trigger>
+                <Button color="green" variant="soft">Publish to GitLab</Button>
+              </AlertDialog.Trigger>
+              <AlertDialog.Content maxWidth="450px">
+                <AlertDialog.Title>Publish translations to GitLab</AlertDialog.Title>
+                <AlertDialog.Description size="2">
+                  Push translation files for <strong>{appName}</strong> to GitLab and create a Merge Request.
+                </AlertDialog.Description>
+                <Box mt="3">
+                  <label>Target Branch</label>
+                  <Select.Root value={publishBranch} onValueChange={setPublishBranch}>
+                    <Select.Trigger style={{ width: '100%', marginTop: '4px' }} />
+                    <Select.Content>
+                      <Select.Item value="test">test</Select.Item>
+                      <Select.Item value="main">main</Select.Item>
+                    </Select.Content>
+                  </Select.Root>
+                </Box>
+                {publishResult?.error && (
+                  <Box mt="2" style={{ color: 'var(--red-11)' }}>
+                    Error: {publishResult.error}
+                  </Box>
+                )}
+                {publishResult?.success && (
+                  <Box mt="2" style={{ color: 'var(--green-11)' }}>
+                    {publishResult.warning
+                      ? <>MR created (merge failed, please merge manually): <a href={publishResult.mr_url} target="_blank" rel="noreferrer">{publishResult.mr_url}</a></>
+                      : <>Merged successfully: <a href={publishResult.mr_url} target="_blank" rel="noreferrer">{publishResult.mr_url}</a></>
+                    }
+                  </Box>
+                )}
+                <Flex gap="3" mt="4" justify="end">
+                  <AlertDialog.Cancel>
+                    <Button variant="soft" color="gray">Cancel</Button>
+                  </AlertDialog.Cancel>
+                  <Button
+                    color="green"
+                    onClick={handlePublish}
+                    disabled={publishFetcher.state !== 'idle'}
+                  >
+                    {publishFetcher.state !== 'idle' ? 'Publishing...' : 'Publish'}
+                  </Button>
+                </Flex>
+              </AlertDialog.Content>
+            </AlertDialog.Root>
+          )}
+        </Flex>
       </Box>
       <AlertDialog.Root open={!!deletingId} onOpenChange={(open) => !open && setDeletingId(null)}>
         <Table.Root style={{ width: '100%' }}>
