@@ -176,7 +176,204 @@ function createServer() {
     }
   );
 
-  // 7. ai_translate — POST /api/translate
+  // 7. list_incomplete_keys — GET /i18n-json + /i18n-id-json
+  server.tool(
+    'list_incomplete_keys',
+    '列出某个 app 下存在缺失/空翻译的 key（常用于只录入中文、其他语言待补齐的场景）',
+    {
+      app_name: z.string().describe('应用名称'),
+      languages: z
+        .array(z.string())
+        .optional()
+        .describe('要检查的语言列表（默认：该 app 返回的全部语言）'),
+      include_missing: z
+        .boolean()
+        .optional()
+        .default(true)
+        .describe('是否把“缺少该语言记录”的 key 视为不完整，默认 true'),
+      include_blank: z
+        .boolean()
+        .optional()
+        .default(true)
+        .describe('是否把“值为空字符串/仅空白”的 key 视为不完整，默认 true'),
+      key: z
+        .string()
+        .optional()
+        .describe('筛选 key（支持逗号分隔多个）'),
+      key_contains: z
+        .string()
+        .optional()
+        .describe('只返回 key 包含该子串的记录'),
+      key_prefix: z
+        .string()
+        .optional()
+        .describe('只返回 key 以该前缀开头的记录'),
+      offset: z.number().int().nonnegative().optional().default(0).describe('分页 offset，默认 0'),
+      limit: z.number().int().positive().max(2000).optional().default(200).describe('分页 limit，默认 200（最大 2000）'),
+      include_translations: z
+        .boolean()
+        .optional()
+        .default(false)
+        .describe('是否在结果里附带各语言的翻译值（数据量较大），默认 false'),
+      include_ids: z.boolean().optional().default(false).describe('是否返回每个语言的翻译 ID（需要额外请求），默认 false'),
+    },
+    async ({
+      app_name,
+      languages,
+      include_missing,
+      include_blank,
+      key,
+      key_contains,
+      key_prefix,
+      offset,
+      limit,
+      include_translations,
+      include_ids,
+    }) => {
+      if (!include_missing && !include_blank) {
+        return { content: [{ type: 'text', text: JSON.stringify({ app_name, items: [], total: 0, has_more: false }, null, 2) }] };
+      }
+
+      const wantTranslations = include_translations || include_ids;
+      const values = await apiGet(`/i18n-json?app_name=${encodeURIComponent(app_name)}`);
+      const availableLanguages = Object.keys(values).sort();
+      if (availableLanguages.length === 0) {
+        const result = {
+          app_name,
+          languages: [],
+          offset,
+          limit,
+          total: 0,
+          has_more: false,
+          counts_by_language: {},
+          items: [],
+          warning: 'No languages returned for this app_name (app may not exist or has no translations).',
+        };
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      }
+
+      const requestedLanguages = (languages?.length ? languages : availableLanguages).slice();
+      const unknownLanguages = requestedLanguages.filter((l) => !availableLanguages.includes(l));
+      const languagesToCheck = requestedLanguages.filter((l) => availableLanguages.includes(l));
+      if (languagesToCheck.length === 0) {
+        const result = {
+          app_name,
+          languages: [],
+          unknown_languages: unknownLanguages,
+          available_languages: availableLanguages,
+          offset,
+          limit,
+          total: 0,
+          has_more: false,
+          counts_by_language: {},
+          items: [],
+          warning: 'No valid languages to check. Please omit `languages` or pass languages within `available_languages`.',
+        };
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      }
+
+      const ids = include_ids
+        ? await apiGet(`/i18n-id-json?app_name=${encodeURIComponent(app_name)}`)
+        : null;
+
+      const merged = {};
+      for (const lang of languagesToCheck) {
+        const kvs = values[lang] || {};
+        for (const [k, v] of Object.entries(kvs)) {
+          if (!merged[k]) merged[k] = {};
+          merged[k][lang] = {
+            id: ids?.[k]?.[lang] ?? null,
+            value: v,
+          };
+        }
+      }
+
+      let keysToScan = Object.keys(merged);
+
+      if (key) {
+        const filterKeys = new Set(key.split(',').map((k) => k.trim()).filter(Boolean));
+        keysToScan = keysToScan.filter((k) => filterKeys.has(k));
+      }
+      if (key_contains) keysToScan = keysToScan.filter((k) => k.includes(key_contains));
+      if (key_prefix) keysToScan = keysToScan.filter((k) => k.startsWith(key_prefix));
+
+      keysToScan.sort();
+
+      const counts = Object.fromEntries(
+        languagesToCheck.map((lang) => [lang, { missing: 0, blank: 0 }])
+      );
+
+      const items = [];
+      let total = 0;
+      for (const k of keysToScan) {
+        const missing = [];
+        const blank = [];
+
+        for (const lang of languagesToCheck) {
+          const entry = merged[k]?.[lang];
+          const value = entry?.value;
+          if (value === undefined) {
+            missing.push(lang);
+          } else if (include_blank) {
+            const isBlankString = typeof value === 'string' && value.trim().length === 0;
+            if (value === null || isBlankString) blank.push(lang);
+          }
+        }
+
+        const isIncomplete =
+          (include_missing && missing.length > 0) || (include_blank && blank.length > 0);
+
+        if (!isIncomplete) continue;
+
+        total += 1;
+
+        if (include_missing) {
+          for (const lang of missing) counts[lang].missing += 1;
+        }
+        if (include_blank) {
+          for (const lang of blank) counts[lang].blank += 1;
+        }
+
+        const index = total - 1;
+        if (index < offset || items.length >= limit) continue;
+
+        const item = {
+          key: k,
+          missing_languages: include_missing ? missing : [],
+          blank_languages: include_blank ? blank : [],
+        };
+
+        if (wantTranslations) {
+          item.translations = Object.fromEntries(
+            languagesToCheck.map((lang) => {
+              const entry = merged[k]?.[lang];
+              const value = entry?.value ?? null;
+              const out = include_ids ? { id: entry?.id ?? null, value } : { value };
+              return [lang, out];
+            })
+          );
+        }
+
+        items.push(item);
+      }
+
+      const result = {
+        app_name,
+        languages: languagesToCheck,
+        unknown_languages: unknownLanguages,
+        offset,
+        limit,
+        total,
+        has_more: offset + limit < total,
+        counts_by_language: counts,
+        items,
+      };
+
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  // 8. ai_translate — POST /api/translate
   server.tool(
     'ai_translate',
     'AI 翻译：将中文文本翻译为指定目标语言',
