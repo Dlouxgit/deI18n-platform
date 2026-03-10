@@ -395,6 +395,36 @@ function createServer() {
     }
   );
 
+  // 9. ai_batch_translate — POST /api/batch-translate
+  server.tool(
+    'ai_batch_translate',
+    '批量 AI 翻译：将多条中文文本在一次 AI 请求中翻译为指定目标语言（最多 50 条）',
+    {
+      items: z
+        .array(
+          z.object({
+            key: z.string().describe('翻译 key，用于标识每条结果'),
+            text: z.string().describe('要翻译的中文文本'),
+          })
+        )
+        .min(1)
+        .max(50)
+        .describe('待翻译条目列表，每条包含 key 和 text'),
+      target_languages: z
+        .array(z.string())
+        .optional()
+        .default(['en-US', 'zh-TW', 'ja-JP', 'vi-VN'])
+        .describe('目标语言代码列表，默认全部 4 种'),
+    },
+    async ({ items, target_languages }) => {
+      const data = await apiPostJson('/api/batch-translate', {
+        items,
+        targetLanguages: target_languages,
+      });
+      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+    }
+  );
+
   return server;
 }
 
