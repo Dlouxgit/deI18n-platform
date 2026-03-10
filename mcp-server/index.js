@@ -52,10 +52,10 @@ function createServer() {
     version: '1.0.0',
   });
 
-  // 1. list_apps — GET /api/stats
+  // 1. list_apps
   server.tool(
     'list_apps',
-    '列出所有 app 及翻译条目统计',
+    '列出平台上所有已注册的 app（应用）及其翻译条目数量统计。用于了解有哪些 app 可操作、各 app 的翻译覆盖情况。',
     {},
     async () => {
       const data = await apiGet('/api/stats');
@@ -63,13 +63,13 @@ function createServer() {
     }
   );
 
-  // 2. list_translations — GET /i18n-json + /i18n-id-json
+  // 2. list_translations
   server.tool(
     'list_translations',
-    '按 app/key 查询翻译条目（含 ID），返回按 key 分组的记录',
+    '查询指定 app 的翻译条目，返回按 key 分组的所有语言翻译值及数据库记录 ID。注意：不传 key 参数时会返回该 app 的全量翻译，数据量大概率超过 2000 条，建议通过 key 参数筛选特定条目以减少返回量。返回格式: { “some.key”: { “en-US”: { id: 123, value: “Hello” }, “zh-CN”: { id: 124, value: “你好” } } }。常用于：查看某个 key 的当前翻译内容、获取记录 ID 以便后续调用 update_translation 更新。',
     {
-      app_name: z.string().describe('应用名称'),
-      key: z.string().optional().describe('筛选 key（支持逗号分隔多个）'),
+      app_name: z.string().describe('应用名称，如 “kanjian-music”'),
+      key: z.string().optional().describe('按 key 筛选，支持逗号分隔多个，如 “song.title,album.name”。不传则返回该 app 全部条目'),
     },
     async ({ app_name, key }) => {
       const [values, ids] = await Promise.all([
@@ -77,7 +77,6 @@ function createServer() {
         apiGet(`/i18n-id-json?app_name=${encodeURIComponent(app_name)}`),
       ]);
 
-      // 合并为 { key: { lang: { id, value } } }
       const merged = {};
       for (const [lang, kvs] of Object.entries(values)) {
         for (const [k, v] of Object.entries(kvs)) {
@@ -86,7 +85,6 @@ function createServer() {
         }
       }
 
-      // 按 key 过滤
       let result = merged;
       if (key) {
         const filterKeys = new Set(key.split(',').map((k) => k.trim()));
@@ -99,13 +97,13 @@ function createServer() {
     }
   );
 
-  // 3. get_translation_json — GET /i18n-json
+  // 3. get_translation_json
   server.tool(
     'get_translation_json',
-    '导出某个 app 的翻译为 JSON（按语言分组），可选 expand 展开嵌套 key',
+    '导出指定 app 的全部翻译为 JSON，按语言分组。返回格式: { “en-US”: { “key1”: “value1”, ... }, “zh-CN”: { ... } }。expand=true 时会将点分隔的 key（如 “a.b.c”）展开为嵌套对象 { a: { b: { c: “value” } } }，适合直接用于前端 i18n 文件。',
     {
-      app_name: z.string().describe('应用名称'),
-      expand: z.boolean().optional().default(false).describe('是否按 . 展开为嵌套对象'),
+      app_name: z.string().describe('应用名称，如 “kanjian-music”'),
+      expand: z.boolean().optional().default(false).describe('是否将点分隔的 key 展开为嵌套 JSON 对象，默认 false（保持扁平 key）'),
     },
     async ({ app_name, expand }) => {
       const data = await apiGet(
@@ -115,38 +113,42 @@ function createServer() {
     }
   );
 
-  // 4. add_translation — POST /add
+  // 4. add_translation
   server.tool(
     'add_translation',
-    '新增一个 key 的多语言翻译',
+    '批量新增或覆写翻译条目，支持一次写入多个 key 的多语言翻译。每个 key 可包含任意语言的翻译值。overwrite=false（默认）时，如果 key 已存在则跳过不写入；overwrite=true 时，已存在的 key 会被新值覆盖（相当于编辑/更新）。适用场景：批量导入翻译、AI 翻译后批量写入、补齐缺失语言的翻译。',
     {
-      app_name: z.string().describe('应用名称'),
-      key: z.string().describe('翻译 key（column_name）'),
-      translations: z
-        .record(z.string(), z.string())
-        .describe('语言代码到翻译值的映射，如 {"en-US":"Hello","zh-CN":"你好"}'),
-      overwrite: z.boolean().optional().default(false).describe('是否覆写已存在的同名记录，默认 false'),
+      app_name: z.string().describe('应用名称，如 “kanjian-music”'),
+      keys: z
+        .array(
+          z.object({
+            key: z.string().describe('翻译 key，如 “song.title”'),
+          }).catchall(z.string())
+        )
+        .min(1)
+        .describe('翻译条目数组，每项包含 key 及各语言翻译值。格式: [{ “key”: “song.title”, “en-US”: “Song Title”, “zh-CN”: “歌曲名称”, “ja-JP”: “曲名” }]'),
+      overwrite: z
+        .boolean()
+        .optional()
+        .default(false)
+        .describe('是否覆写已存在的同 key 记录。false（默认）= 仅新增不存在的 key，已有的跳过；true = 已存在的 key 用新值覆盖，相当于批量更新'),
     },
-    async ({ app_name, key, translations, overwrite }) => {
-      const body = {
-        app_name,
-        overwrite,
-        keys: [{ key, ...translations }],
-      };
+    async ({ app_name, keys, overwrite }) => {
+      const body = { app_name, overwrite, keys };
       const data = await apiPostJson('/api/batch-add', body);
       return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
     }
   );
 
-  // 5. update_translation — POST / (_action=update)
+  // 5. update_translation
   server.tool(
     'update_translation',
-    '修改翻译值。需提供 app_name、key、language 和 id（可通过 list_translations 获取 ID）',
+    '更新单条翻译记录的值。需要提供记录 ID（通过 list_translations 获取）。每次只能更新一个 key 的一种语言。如需批量更新，请使用 add_translation 并设置 overwrite=true。',
     {
-      app_name: z.string().describe('应用名称'),
-      key: z.string().describe('翻译 key（column_name）'),
-      language: z.string().describe('语言代码，如 en-US'),
-      id: z.number().describe('翻译记录 ID'),
+      app_name: z.string().describe('应用名称，如 “kanjian-music”'),
+      key: z.string().describe('翻译 key，如 “song.title”'),
+      language: z.string().describe('要更新的语言代码，如 “en-US”、”zh-CN”、”zh-TW”、”ja-JP”、”vi-VN”'),
+      id: z.number().describe('翻译记录的数据库 ID，需先通过 list_translations 查询获取'),
       value: z.string().describe('新的翻译值'),
     },
     async ({ app_name, key, language, id, value }) => {
@@ -161,13 +163,13 @@ function createServer() {
     }
   );
 
-  // 6. delete_translation_key — POST / (_action=delete)
+  // 6. delete_translation_key
   server.tool(
     'delete_translation_key',
-    '删除某个 key 的所有语言翻译',
+    '删除指定 key 的所有语言翻译记录。此操作不可撤销，会同时删除该 key 下的 en-US、zh-CN、zh-TW、ja-JP、vi-VN 等全部语言条目。',
     {
-      app_name: z.string().describe('应用名称'),
-      key: z.string().describe('要删除的翻译 key（column_name）'),
+      app_name: z.string().describe('应用名称，如 “kanjian-music”'),
+      key: z.string().describe('要删除的翻译 key，如 “song.title”。该 key 下所有语言的记录都会被删除'),
     },
     async ({ app_name, key }) => {
       const fields = { _action: 'delete', column_name: key, app_name };
@@ -176,46 +178,46 @@ function createServer() {
     }
   );
 
-  // 7. list_incomplete_keys — GET /i18n-json + /i18n-id-json
+  // 7. list_incomplete_keys
   server.tool(
     'list_incomplete_keys',
-    '列出某个 app 下存在缺失/空翻译的 key（常用于只录入中文、其他语言待补齐的场景）',
+    '查找指定 app 中翻译不完整的 key：包括缺少某些语言的记录（missing）或翻译值为空（blank）的情况。典型场景：只录入了中文，需要找出哪些 key 还缺少英文、日文等其他语言的翻译，以便补齐。返回每个不完整 key 的缺失语言列表，并按语言统计缺失/空白数量。',
     {
-      app_name: z.string().describe('应用名称'),
+      app_name: z.string().describe('应用名称，如 “kanjian-music”'),
       languages: z
         .array(z.string())
         .optional()
-        .describe('要检查的语言列表（默认：该 app 返回的全部语言）'),
+        .describe('要检查的语言列表，如 [“en-US”,”ja-JP”]。不传则检查该 app 的全部语言'),
       include_missing: z
         .boolean()
         .optional()
         .default(true)
-        .describe('是否把“缺少该语言记录”的 key 视为不完整，默认 true'),
+        .describe('是否将”完全缺少该语言记录”的 key 视为不完整，默认 true'),
       include_blank: z
         .boolean()
         .optional()
         .default(true)
-        .describe('是否把“值为空字符串/仅空白”的 key 视为不完整，默认 true'),
+        .describe('是否将”翻译值为空字符串或仅空白”的 key 视为不完整，默认 true'),
       key: z
         .string()
         .optional()
-        .describe('筛选 key（支持逗号分隔多个）'),
+        .describe('按 key 精确筛选，支持逗号分隔多个'),
       key_contains: z
         .string()
         .optional()
-        .describe('只返回 key 包含该子串的记录'),
+        .describe('模糊筛选：只返回 key 中包含该子串的记录'),
       key_prefix: z
         .string()
         .optional()
-        .describe('只返回 key 以该前缀开头的记录'),
-      offset: z.number().int().nonnegative().optional().default(0).describe('分页 offset，默认 0'),
-      limit: z.number().int().positive().max(2000).optional().default(200).describe('分页 limit，默认 200（最大 2000）'),
+        .describe('前缀筛选：只返回 key 以该前缀开头的记录，如 “album.” 会匹配 “album.title”、”album.artist” 等'),
+      offset: z.number().int().nonnegative().optional().default(0).describe('分页偏移量，默认 0'),
+      limit: z.number().int().positive().max(2000).optional().default(200).describe('每页返回数量，默认 200，最大 2000'),
       include_translations: z
         .boolean()
         .optional()
         .default(false)
-        .describe('是否在结果里附带各语言的翻译值（数据量较大），默认 false'),
-      include_ids: z.boolean().optional().default(false).describe('是否返回每个语言的翻译 ID（需要额外请求），默认 false'),
+        .describe('是否在结果中附带各语言的当前翻译值（数据量较大），默认 false'),
+      include_ids: z.boolean().optional().default(false).describe('是否在结果中附带各语言的数据库记录 ID（用于后续 update_translation），默认 false'),
     },
     async ({
       app_name,
@@ -373,17 +375,17 @@ function createServer() {
     }
   );
 
-  // 8. ai_translate — POST /api/translate
+  // 8. ai_translate
   server.tool(
     'ai_translate',
-    'AI 翻译：将中文文本翻译为指定目标语言',
+    'AI 翻译（单条）：将一条中文文本翻译为指定目标语言，使用音乐行业术语。仅翻译不写入数据库，需要写入请配合 add_translation 使用。如有多条文本需要翻译，请使用 ai_batch_translate。',
     {
       text: z.string().describe('要翻译的中文文本'),
       target_languages: z
         .array(z.string())
         .optional()
         .default(['en-US', 'zh-TW', 'ja-JP', 'vi-VN'])
-        .describe('目标语言代码列表，默认全部 4 种'),
+        .describe('目标语言代码列表，可选: en-US, zh-TW, ja-JP, vi-VN。默认全部 4 种'),
     },
     async ({ text, target_languages }) => {
       const fields = {
@@ -395,26 +397,26 @@ function createServer() {
     }
   );
 
-  // 9. ai_batch_translate — POST /api/batch-translate
+  // 9. ai_batch_translate
   server.tool(
     'ai_batch_translate',
-    '批量 AI 翻译：将多条中文文本在一次 AI 请求中翻译为指定目标语言（最多 50 条）',
+    'AI 批量翻译：将多条中文文本在一次 AI 请求中翻译为指定目标语言（最多 50 条），使用音乐行业术语。比逐条调用 ai_translate 更高效。仅翻译不写入数据库，翻译完成后可将结果直接传给 add_translation（支持批量多 key）一次性写入。',
     {
       items: z
         .array(
           z.object({
-            key: z.string().describe('翻译 key，用于标识每条结果'),
+            key: z.string().describe('翻译 key，用于在返回结果中标识对应的翻译，如 “song.title”'),
             text: z.string().describe('要翻译的中文文本'),
           })
         )
         .min(1)
         .max(50)
-        .describe('待翻译条目列表，每条包含 key 和 text'),
+        .describe('待翻译条目数组。示例: [{ “key”: “song.title”, “text”: “歌曲名称” }, { “key”: “album.name”, “text”: “专辑名称” }]'),
       target_languages: z
         .array(z.string())
         .optional()
         .default(['en-US', 'zh-TW', 'ja-JP', 'vi-VN'])
-        .describe('目标语言代码列表，默认全部 4 种'),
+        .describe('目标语言代码列表，可选: en-US, zh-TW, ja-JP, vi-VN。默认全部 4 种'),
     },
     async ({ items, target_languages }) => {
       const data = await apiPostJson('/api/batch-translate', {
