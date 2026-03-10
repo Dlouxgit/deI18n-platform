@@ -185,8 +185,8 @@ function createServer() {
       target_languages: z
         .array(z.string())
         .optional()
-        .default(['en-US', 'zh-TW', 'ja-JP', 'vi-VN', 'ru-RU'])
-        .describe('目标语言代码列表，默认全部 5 种'),
+        .default(['en-US', 'zh-TW', 'ja-JP', 'vi-VN'])
+        .describe('目标语言代码列表，默认全部 4 种'),
     },
     async ({ text, target_languages }) => {
       const fields = {
