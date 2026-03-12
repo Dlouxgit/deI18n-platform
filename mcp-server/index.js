@@ -55,7 +55,7 @@ function createServer() {
   // 1. list_apps
   server.tool(
     'list_apps',
-    '列出平台上所有已注册的 app（应用）及其翻译条目数量统计。用于了解有哪些 app 可操作、各 app 的翻译覆盖情况。',
+    '列出平台上所有已注册的 app（应用）及其翻译条目数量统计。用于了解有哪些 app 可操作、各 app 的翻译覆盖情况。提示：当用户没有明确给出 app_name（增删改查都需要）时，先调用本工具让用户选择。',
     {},
     async () => {
       const data = await apiGet('/api/stats');
@@ -116,7 +116,7 @@ function createServer() {
   // 4. add_translation
   server.tool(
     'add_translation',
-    '批量新增或覆写翻译条目，支持一次写入多个 key 的多语言翻译。每个 key 可包含任意语言的翻译值。overwrite=false（默认）时，如果 key 已存在则跳过不写入；overwrite=true 时，已存在的 key 会被新值覆盖（相当于编辑/更新）。适用场景：批量导入翻译、AI 翻译后批量写入、补齐缺失语言的翻译。',
+    '批量新增或覆写翻译条目，支持一次写入多个 key 的多语言翻译。每个 key 可包含任意语言的翻译值。overwrite=false（默认）时，如果 key 已存在则跳过不写入；overwrite=true 时，已存在的 key 会被新值覆盖（相当于编辑/更新）。适用场景：批量导入翻译、AI 翻译后批量写入、补齐缺失语言的翻译。注意：如果用户未明确指出要操作的 app_name，请先询问用户（不要猜测），或先调用 list_apps 展示可选 app。',
     {
       app_name: z.string().describe('应用名称，如 “kanjian-music”'),
       keys: z
@@ -143,7 +143,7 @@ function createServer() {
   // 5. update_translation
   server.tool(
     'update_translation',
-    '更新单条翻译记录的值。需要提供记录 ID（通过 list_translations 获取）。每次只能更新一个 key 的一种语言。如需批量更新，请使用 add_translation 并设置 overwrite=true。',
+    '更新单条翻译记录的值。需要提供记录 ID（通过 list_translations 获取）。每次只能更新一个 key 的一种语言。如需批量更新，请使用 add_translation 并设置 overwrite=true。注意：如果用户未明确指出要操作的 app_name，请先询问用户（不要猜测），或先调用 list_apps 展示可选 app。',
     {
       app_name: z.string().describe('应用名称，如 “kanjian-music”'),
       key: z.string().describe('翻译 key，如 “song.title”'),
@@ -166,7 +166,7 @@ function createServer() {
   // 6. delete_translation_key
   server.tool(
     'delete_translation_key',
-    '删除指定 key 的所有语言翻译记录。此操作不可撤销，会同时删除该 key 下的 en-US、zh-CN、zh-TW、ja-JP、vi-VN 等全部语言条目。',
+    '删除指定 key 的所有语言翻译记录。此操作不可撤销，会同时删除该 key 下的 en-US、zh-CN、zh-TW、ja-JP、vi-VN 等全部语言条目。注意：如果用户未明确指出要操作的 app_name，请先询问用户（不要猜测），或先调用 list_apps 展示可选 app。',
     {
       app_name: z.string().describe('应用名称，如 “kanjian-music”'),
       key: z.string().describe('要删除的翻译 key，如 “song.title”。该 key 下所有语言的记录都会被删除'),
