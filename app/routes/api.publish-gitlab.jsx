@@ -1,8 +1,9 @@
 import { json } from '@remix-run/node';
 import { getDbConnection, getTranslations } from '../service/i18n';
 
-const GITLAB_URL = process.env.GITLAB_URL || 'https://gitlab.kanjian.com';
+const GITLAB_URL = (process.env.GITLAB_URL || '').replace(/\/$/, '');
 const GITLAB_TOKEN = process.env.GITLAB_TOKEN || '';
+const WECOM_WEBHOOK = process.env.WECOM_WEBHOOK || '';
 
 async function gitlabApi(path, options = {}) {
   const url = `${GITLAB_URL}/api/v4${path}`;
@@ -33,6 +34,9 @@ function getTranslationJson(translations) {
 }
 
 export async function action({ request }) {
+  if (!GITLAB_URL) {
+    return json({ error: 'GITLAB_URL is not configured' }, { status: 500 });
+  }
   if (!GITLAB_TOKEN) {
     return json({ error: 'GITLAB_TOKEN is not configured' }, { status: 500 });
   }
@@ -166,8 +170,12 @@ export async function action({ request }) {
     } else {
       // non-test branch: send WeChat bot notification
       console.log(`[publish] Sending WeChat bot notification for MR !${mr.iid}...`);
+      if (!WECOM_WEBHOOK) {
+        console.warn('[publish] WECOM_WEBHOOK is not configured; skipping WeChat bot notification');
+        return json({ success: true, mr_url: mr.web_url });
+      }
       try {
-        await fetch('https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=02127a59-7a3c-41b8-89c4-87293a240828', {
+        await fetch(WECOM_WEBHOOK, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

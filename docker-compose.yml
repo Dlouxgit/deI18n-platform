@@ -20,8 +20,9 @@ services:
       - mysql
     environment:
       MYSQL_HOST: mysql
-      GITLAB_URL: https://gitlab.kanjian.com
+      GITLAB_URL: ${GITLAB_URL}
       GITLAB_TOKEN: ${GITLAB_TOKEN}
+      WECOM_WEBHOOK: ${WECOM_WEBHOOK}
     expose:
       - "7999"
 
