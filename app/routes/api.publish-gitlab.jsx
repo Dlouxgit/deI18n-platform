@@ -1,8 +1,12 @@
+import { createHmac } from 'node:crypto';
+import process from 'node:process';
 import { json } from '@remix-run/node';
 import { getDbConnection, getTranslations } from '../service/i18n';
 
 const GITLAB_URL = (process.env.GITLAB_URL || '').replace(/\/$/, '');
 const GITLAB_TOKEN = process.env.GITLAB_TOKEN || '';
+const FEISHU_WEBHOOK = process.env.FEISHU_WEBHOOK || '';
+const FEISHU_SECRET = process.env.FEISHU_SECRET || '';
 const WECOM_WEBHOOK = process.env.WECOM_WEBHOOK || '';
 
 async function gitlabApi(path, options = {}) {
@@ -33,6 +37,70 @@ function getTranslationJson(translations) {
   }, {});
 }
 
+function buildFeishuSign(secret, timestamp) {
+  const stringToSign = `${timestamp}\n${secret}`;
+  return createHmac('sha256', stringToSign).digest('base64');
+}
+
+function buildFeishuPayload(appName, targetBranch, mrUrl) {
+  const payload = {
+    msg_type: 'post',
+    content: {
+      post: {
+        zh_cn: {
+          title: 'i18n 翻译发布通知',
+          content: [
+            [{ tag: 'text', text: '项目：' }, { tag: 'text', text: String(appName) }],
+            [{ tag: 'text', text: '目标分支：' }, { tag: 'text', text: String(targetBranch) }],
+            [{ tag: 'text', text: 'MR：' }, { tag: 'a', text: '查看 Merge Request', href: mrUrl }],
+            [{ tag: 'text', text: '请相关同学 review 后合并' }],
+          ],
+        },
+      },
+    },
+  };
+
+  if (FEISHU_SECRET) {
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    payload.timestamp = timestamp;
+    payload.sign = buildFeishuSign(FEISHU_SECRET, timestamp);
+  }
+
+  return payload;
+}
+
+async function sendFeishuBotNotification(appName, targetBranch, mrUrl) {
+  const res = await fetch(FEISHU_WEBHOOK, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(buildFeishuPayload(appName, targetBranch, mrUrl)),
+  });
+
+  const data = await res.json().catch(() => null);
+  const code = data?.code ?? data?.StatusCode ?? 0;
+  if (!res.ok || code !== 0) {
+    throw new Error(data?.msg || data?.StatusMessage || `Feishu bot API error: ${res.status}`);
+  }
+}
+
+async function sendWecomBotNotification(appName, targetBranch, mrUrl) {
+  const res = await fetch(WECOM_WEBHOOK, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      msgtype: 'markdown',
+      markdown: {
+        content: `**i18n 翻译发布通知**\n>项目: <font color="info">${appName}</font>\n>目标分支: <font color="warning">${targetBranch}</font>\n>MR: ${mrUrl}\n>\n>请相关同学review后合并`,
+      },
+    }),
+  });
+
+  const data = await res.json().catch(() => null);
+  if (!res.ok || (typeof data?.errcode === 'number' && data.errcode !== 0)) {
+    throw new Error(data?.errmsg || `WeCom bot API error: ${res.status}`);
+  }
+}
+
 export async function action({ request }) {
   if (!GITLAB_URL) {
     return json({ error: 'GITLAB_URL is not configured' }, { status: 500 });
@@ -50,6 +118,8 @@ export async function action({ request }) {
   }
 
   try {
+    let merged = false;
+
     // 1. Fetch translations from DB directly
     const connection = await getDbConnection();
     let translationData;
@@ -147,7 +217,6 @@ export async function action({ request }) {
     if (targetBranch === 'test') {
       console.log(`[publish] Merging MR !${mr.iid}...`);
       const maxRetries = 3;
-      let merged = false;
       for (let i = 0; i < maxRetries; i++) {
         await new Promise(r => setTimeout(r, 2000));
         try {
@@ -163,34 +232,38 @@ export async function action({ request }) {
           console.log(`[publish] Merge attempt ${i + 1} failed: ${e.message}`);
           if (i === maxRetries - 1) {
             console.error(`[publish] Auto-merge failed after ${maxRetries} attempts`);
-            return json({ success: true, mr_url: mr.web_url, warning: `MR created but auto-merge failed: ${e.message}` });
+            return json({
+              success: true,
+              mr_url: mr.web_url,
+              merged: false,
+              warning: `MR created but auto-merge failed: ${e.message}`,
+            });
           }
         }
       }
     } else {
-      // non-test branch: send WeChat bot notification
-      console.log(`[publish] Sending WeChat bot notification for MR !${mr.iid}...`);
-      if (!WECOM_WEBHOOK) {
-        console.warn('[publish] WECOM_WEBHOOK is not configured; skipping WeChat bot notification');
-        return json({ success: true, mr_url: mr.web_url });
-      }
-      try {
-        await fetch(WECOM_WEBHOOK, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            msgtype: 'markdown',
-            markdown: {
-              content: `**i18n 翻译发布通知**\n>项目: <font color="info">${appName}</font>\n>目标分支: <font color="warning">${targetBranch}</font>\n>MR: ${mr.web_url}\n>\n>请相关同学review后合并`,
-            },
-          }),
-        });
-      } catch (e) {
-        console.error(`[publish] WeChat bot notification failed: ${e.message}`);
+      // non-test branch: send Feishu/WeCom bot notification
+      if (FEISHU_WEBHOOK) {
+        console.log(`[publish] Sending Feishu bot notification for MR !${mr.iid}...`);
+        try {
+          await sendFeishuBotNotification(appName, targetBranch, mr.web_url);
+        } catch (e) {
+          console.error(`[publish] Feishu bot notification failed: ${e.message}`);
+        }
+      } else if (WECOM_WEBHOOK) {
+        console.log(`[publish] Sending WeCom bot notification for MR !${mr.iid}...`);
+        try {
+          await sendWecomBotNotification(appName, targetBranch, mr.web_url);
+        } catch (e) {
+          console.error(`[publish] WeCom bot notification failed: ${e.message}`);
+        }
+      } else {
+        console.warn('[publish] FEISHU_WEBHOOK/WECOM_WEBHOOK is not configured; skipping bot notification');
+        return json({ success: true, mr_url: mr.web_url, merged: false });
       }
     }
 
-    return json({ success: true, mr_url: mr.web_url });
+    return json({ success: true, mr_url: mr.web_url, merged });
   } catch (error) {
     console.error('Publish to GitLab error:', error);
     return json({ error: error.message }, { status: 500 });

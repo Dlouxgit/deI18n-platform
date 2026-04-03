@@ -16,7 +16,9 @@ For the GitLab publish API (`/api/publish-gitlab`), set:
 
 - `GITLAB_URL`
 - `GITLAB_TOKEN`
-- `WECOM_WEBHOOK` (optional, used for WeCom bot notifications)
+- `FEISHU_WEBHOOK` (optional, preferred for Feishu bot notifications)
+- `FEISHU_SECRET` (optional, only needed if the Feishu bot enables signature verification)
+- `WECOM_WEBHOOK` (optional fallback, used for WeCom bot notifications when `FEISHU_WEBHOOK` is not set)
 
 ## Deployment
 

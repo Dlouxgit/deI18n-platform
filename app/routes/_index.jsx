@@ -427,9 +427,9 @@ export default function Index() {
                   Push translation files for <strong>{appName}</strong> to GitLab and create a Merge Request.
                 </AlertDialog.Description>
                 <Box mt="3">
-                  <label>Target Branch</label>
+                  <label htmlFor="publish-target-branch">Target Branch</label>
                   <Select.Root value={publishBranch} onValueChange={setPublishBranch}>
-                    <Select.Trigger style={{ width: '100%', marginTop: '4px' }} />
+                    <Select.Trigger id="publish-target-branch" style={{ width: '100%', marginTop: '4px' }} />
                     <Select.Content>
                       <Select.Item value="test">test</Select.Item>
                       <Select.Item value="main">main</Select.Item>
@@ -445,7 +445,9 @@ export default function Index() {
                   <Box mt="2" style={{ color: 'var(--green-11)' }}>
                     {publishResult.warning
                       ? <>MR created (merge failed, please merge manually): <a href={publishResult.mr_url} target="_blank" rel="noreferrer">{publishResult.mr_url}</a></>
-                      : <>Merged successfully: <a href={publishResult.mr_url} target="_blank" rel="noreferrer">{publishResult.mr_url}</a></>
+                      : publishResult.merged
+                        ? <>Merged successfully: <a href={publishResult.mr_url} target="_blank" rel="noreferrer">{publishResult.mr_url}</a></>
+                        : <>MR created successfully: <a href={publishResult.mr_url} target="_blank" rel="noreferrer">{publishResult.mr_url}</a></>
                     }
                   </Box>
                 )}
