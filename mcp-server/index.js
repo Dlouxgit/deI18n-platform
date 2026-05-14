@@ -147,7 +147,7 @@ function createServer() {
     {
       app_name: z.string().describe('应用名称，如 “kanjian-music”'),
       key: z.string().describe('翻译 key，如 “song.title”'),
-      language: z.string().describe('要更新的语言代码，如 “en-US”、”zh-CN”、”zh-TW”、”ja-JP”、”vi-VN”'),
+      language: z.string().describe('要更新的语言代码，如 “en-US”、”zh-CN”、”zh-TW”、”ja-JP”、”vi-VN”、”ru-RU”'),
       id: z.number().describe('翻译记录的数据库 ID，需先通过 list_translations 查询获取'),
       value: z.string().describe('新的翻译值'),
     },
@@ -166,7 +166,7 @@ function createServer() {
   // 6. delete_translation_key
   server.tool(
     'delete_translation_key',
-    '删除指定 key 的所有语言翻译记录。此操作不可撤销，会同时删除该 key 下的 en-US、zh-CN、zh-TW、ja-JP、vi-VN 等全部语言条目。注意：如果用户未明确指出要操作的 app_name，请先询问用户（不要猜测），或先调用 list_apps 展示可选 app。',
+    '删除指定 key 的所有语言翻译记录。此操作不可撤销，会同时删除该 key 下的 en-US、zh-CN、zh-TW、ja-JP、vi-VN、ru-RU 等全部语言条目。注意：如果用户未明确指出要操作的 app_name，请先询问用户（不要猜测），或先调用 list_apps 展示可选 app。',
     {
       app_name: z.string().describe('应用名称，如 “kanjian-music”'),
       key: z.string().describe('要删除的翻译 key，如 “song.title”。该 key 下所有语言的记录都会被删除'),
@@ -384,8 +384,8 @@ function createServer() {
       target_languages: z
         .array(z.string())
         .optional()
-        .default(['en-US', 'zh-TW', 'ja-JP', 'vi-VN'])
-        .describe('目标语言代码列表，可选: en-US, zh-TW, ja-JP, vi-VN。默认全部 4 种'),
+        .default(['en-US', 'zh-TW', 'ja-JP', 'vi-VN', 'ru-RU'])
+        .describe('目标语言代码列表，可选: en-US, zh-TW, ja-JP, vi-VN, ru-RU。默认全部 5 种'),
     },
     async ({ text, target_languages }) => {
       const fields = {
@@ -415,8 +415,8 @@ function createServer() {
       target_languages: z
         .array(z.string())
         .optional()
-        .default(['en-US', 'zh-TW', 'ja-JP', 'vi-VN'])
-        .describe('目标语言代码列表，可选: en-US, zh-TW, ja-JP, vi-VN。默认全部 4 种'),
+        .default(['en-US', 'zh-TW', 'ja-JP', 'vi-VN', 'ru-RU'])
+        .describe('目标语言代码列表，可选: en-US, zh-TW, ja-JP, vi-VN, ru-RU。默认全部 5 种'),
     },
     async ({ items, target_languages }) => {
       const data = await apiPostJson('/api/batch-translate', {

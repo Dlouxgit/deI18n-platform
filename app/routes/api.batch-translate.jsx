@@ -20,10 +20,10 @@ export async function action({ request }) {
 
     // 构建多条文本列表
     const textList = items
-      .map((item, i) => `[${item.key}]: ${item.text}`)
+      .map((item) => `[${item.key}]: ${item.text}`)
       .join('\n');
 
-    const prompt = `你现在扮演一名精通音乐行业术语的专业翻译助手。这是一款音乐行业的资产管理软件，用于管理音乐作品、专辑、艺人、出版版权、录音版权、DSP 渠道以及版税等数据。仅支持以下目标语言的专业译文: en-US (英文), zh-CN (简体中文), zh-TW (繁体中文), ja-JP (日语), vi-VN (越南语)。请将下面的多条中文文本分别翻译成请求中列出的每种语言。
+    const prompt = `你现在扮演一名精通音乐行业术语的专业翻译助手。这是一款音乐行业的资产管理软件，用于管理音乐作品、专辑、艺人、出版版权、录音版权、DSP 渠道以及版税等数据。仅支持以下目标语言的专业译文: en-US (英文), zh-CN (简体中文), zh-TW (繁体中文), ja-JP (日语), vi-VN (越南语), ru-RU (俄语)。请将下面的多条中文文本分别翻译成请求中列出的每种语言。
 
 严格要求:
 1. 输出必须是一个 JSON 对象，顶层键为每条文本的 key，值为一个对象，该对象的键为语言代码，值为目标语言撰写的专业译文。
@@ -37,8 +37,8 @@ export async function action({ request }) {
 
 输出格式示例:
 {
-  "some.key": { "en-US": "English text", "zh-TW": "繁體文字", "ja-JP": "日本語テキスト", "vi-VN": "Văn bản tiếng Việt" },
-  "another.key": { "en-US": "...", "zh-TW": "...", "ja-JP": "...", "vi-VN": "..." }
+  "some.key": { "en-US": "English text", "zh-TW": "繁體文字", "ja-JP": "日本語テキスト", "vi-VN": "Văn bản tiếng Việt", "ru-RU": "Русский текст" },
+  "another.key": { "en-US": "...", "zh-TW": "...", "ja-JP": "...", "vi-VN": "...", "ru-RU": "..." }
 }
 
 本次请求的语言列表:
@@ -60,7 +60,7 @@ ${textList}`;
         messages: [
           {
             role: 'system',
-            content: 'You are a meticulous translation engine specialized in music industry asset management. Only translate into English (en-US), Simplified Chinese (zh-CN), Traditional Chinese (zh-TW), Japanese (ja-JP), or Vietnamese (vi-VN) as requested. Use established music industry terminology (e.g., publishing rights, master rights, DSP platforms, royalty accounting) with a concise, formal tone suitable for professional software interfaces. Always respond with valid JSON. The top-level keys must match the provided translation keys exactly. Each value is an object mapping language codes to fluent, domain-appropriate translations fully written in that language. No extra commentary.',
+            content: 'You are a meticulous translation engine specialized in music industry asset management. Only translate into English (en-US), Simplified Chinese (zh-CN), Traditional Chinese (zh-TW), Japanese (ja-JP), Vietnamese (vi-VN), or Russian (ru-RU) as requested. Use established music industry terminology (e.g., publishing rights, master rights, DSP platforms, royalty accounting) with a concise, formal tone suitable for professional software interfaces. Always respond with valid JSON. The top-level keys must match the provided translation keys exactly. Each value is an object mapping language codes to fluent, domain-appropriate translations fully written in that language. No extra commentary.',
           },
           {
             role: 'user',
@@ -133,6 +133,7 @@ function getLanguageName(languageCode) {
     'ja-JP': '日语',
     'zh-TW': '繁体中文',
     'vi-VN': '越南语',
+    'ru-RU': '俄语',
   };
   return languageMap[languageCode] || languageCode;
 }

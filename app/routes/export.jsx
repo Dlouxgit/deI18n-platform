@@ -28,7 +28,7 @@ export default function ExportPage() {
   const [currentAppName, setCurrentAppName] = useState(selectedAppName);
   const [showEmptyOnly, setShowEmptyOnly] = useState(false);
 
-  const SUPPORTED_LANGUAGES = ['zh-CN', 'en-US', 'ja-JP', 'zh-TW', 'vi-VN'];
+  const SUPPORTED_LANGUAGES = ['zh-CN', 'en-US', 'ja-JP', 'zh-TW', 'vi-VN', 'ru-RU'];
 
   const handleDownload = async (appName) => {
     const response = await fetch(`/i18n-json?app_name=${appName}`);

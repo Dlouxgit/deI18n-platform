@@ -123,7 +123,7 @@ export default function Index() {
   const [publishResult, setPublishResult] = useState(null)
 
   // 所有支持的语言列表
-  const SUPPORTED_LANGUAGES = ['zh-CN', 'en-US', 'ja-JP', 'zh-TW', 'vi-VN']
+  const SUPPORTED_LANGUAGES = ['zh-CN', 'en-US', 'ja-JP', 'zh-TW', 'vi-VN', 'ru-RU']
 
   // 修改排序逻辑
   const filteredAndSortedTranslations = translations
@@ -519,7 +519,7 @@ export default function Index() {
                             name="_action"
                             value="update"
                           />
-                          {['zh-CN', 'en-US', 'ja-JP', 'zh-TW', 'vi-VN'].map((language) => (
+                          {['zh-CN', 'en-US', 'ja-JP', 'zh-TW', 'vi-VN', 'ru-RU'].map((language) => (
                             <Box key={language} width="100%">
                               <Badge
                                 color={getBadgeColor(language)}
@@ -685,6 +685,8 @@ function getBadgeColor(languageScriptCode) {
       return 'crimson'
     case 'vi-VN':
       return 'green'
+    case 'ru-RU':
+      return 'purple'
     default:
       return 'gray'
   }
