@@ -116,7 +116,7 @@ function createServer() {
   // 4. add_translation
   server.tool(
     'add_translation',
-    '批量新增或覆写翻译条目，支持一次写入多个 key 的多语言翻译。每个 key 可包含任意语言的翻译值。overwrite=false（默认）时，如果 key 已存在则跳过不写入；overwrite=true 时，已存在的 key 会被新值覆盖（相当于编辑/更新）。适用场景：批量导入翻译、AI 翻译后批量写入、补齐缺失语言的翻译。注意：如果用户未明确指出要操作的 app_name，请先询问用户（不要猜测），或先调用 list_apps 展示可选 app。',
+    '批量新增或覆写翻译条目，支持一次写入多个 key 的多语言翻译。每个 key 可包含任意语言的翻译值。overwrite=false（默认）时，如果 key 已存在则跳过不写入；overwrite=true 时，已存在的 key 会被新值覆盖（相当于编辑/更新）。适用场景：批量导入翻译、AI 翻译后批量写入、补齐缺失语言的翻译。写入翻译值时，必须严格保留所有占位符、变量名和模板参数，不得翻译、改名、删改或调整顺序。适用于 {currency}、{name}、{count}、{{value}}、${amount}、%s、%d、:id、<0>...</0> 等形式。例如 {currency} 必须始终保持为 {currency}，不能写成 {валюта}。注意：如果用户未明确指出要操作的 app_name，请先询问用户（不要猜测），或先调用 list_apps 展示可选 app。',
     {
       app_name: z.string().describe('应用名称，如 “kanjian-music”'),
       keys: z
@@ -126,7 +126,7 @@ function createServer() {
           }).catchall(z.string())
         )
         .min(1)
-        .describe('翻译条目数组，每项包含 key 及各语言翻译值。格式: [{ “key”: “song.title”, “en-US”: “Song Title”, “zh-CN”: “歌曲名称”, “ja-JP”: “曲名” }]'),
+        .describe('翻译条目数组，每项包含 key 及各语言翻译值。格式: [{ “key”: “song.title”, “en-US”: “Song Title”, “zh-CN”: “歌曲名称”, “ja-JP”: “曲名” }]。所有翻译值中的占位符、变量名和模板参数必须严格原样保留，例如 {currency}、{{value}}、${amount}、%s、:id、<0>...</0> 等都不得翻译或改写。'),
       overwrite: z
         .boolean()
         .optional()
@@ -143,13 +143,13 @@ function createServer() {
   // 5. update_translation
   server.tool(
     'update_translation',
-    '更新单条翻译记录的值。需要提供记录 ID（通过 list_translations 获取）。每次只能更新一个 key 的一种语言。如需批量更新，请使用 add_translation 并设置 overwrite=true。注意：如果用户未明确指出要操作的 app_name，请先询问用户（不要猜测），或先调用 list_apps 展示可选 app。',
+    '更新单条翻译记录的值。需要提供记录 ID（通过 list_translations 获取）。每次只能更新一个 key 的一种语言。如需批量更新，请使用 add_translation 并设置 overwrite=true。更新翻译时必须严格保留原文中的全部占位符、变量名和模板语法，禁止翻译、改写、重命名、删改或调整顺序；例如 {currency} 必须保持为 {currency}，不能写成 {валюта}。注意：如果用户未明确指出要操作的 app_name，请先询问用户（不要猜测），或先调用 list_apps 展示可选 app。',
     {
       app_name: z.string().describe('应用名称，如 “kanjian-music”'),
       key: z.string().describe('翻译 key，如 “song.title”'),
       language: z.string().describe('要更新的语言代码，如 “en-US”、”zh-CN”、”zh-TW”、”ja-JP”、”vi-VN”、”ru-RU”'),
       id: z.number().describe('翻译记录的数据库 ID，需先通过 list_translations 查询获取'),
-      value: z.string().describe('新的翻译值'),
+      value: z.string().describe('新的翻译值。必须严格保留原文中的占位符、变量名和模板参数，例如 {currency}、{{value}}、${amount}、%s、:id、<0>...</0> 等都不得翻译或改写。'),
     },
     async ({ app_name, key, language, id, value }) => {
       const fields = {

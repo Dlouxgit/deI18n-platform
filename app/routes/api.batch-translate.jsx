@@ -34,12 +34,23 @@ export async function action({ request }) {
 6. 可在不改变原意的前提下补充必要的行业背景词汇以确保专业性。
 7. 保留原文的格式、语气与语义，不要添加解释或前缀。
 8. 只输出纯 JSON，不得包含 Markdown 代码块或额外文本。
+9. 严禁翻译、改写、重命名任何占位符、变量名或模板参数。
+10. 所有形如 {currency}、{name}、{count}、{{value}}、\${amount}、%s、%d、:id、<0>...</0> 的内容都必须逐字原样保留，包括括号、大小写、拼写、顺序与数量。
+11. 如果原文包含占位符，译文必须保留完全相同的占位符；例如 {currency} 在任何语言中都必须仍然是 {currency}，绝不能变成 {валюта}、{Currency}、{ currency } 或其他形式。
+12. 仅翻译面向用户显示的自然语言文本，不得翻译程序变量、占位符、标签、URL、代码片段或转义标记。
+13. 若无法在保持占位符完全不变的前提下完成翻译，则优先保留原占位符并只翻译其余文本。
 
 输出格式示例:
 {
   "some.key": { "en-US": "English text", "zh-TW": "繁體文字", "ja-JP": "日本語テキスト", "vi-VN": "Văn bản tiếng Việt", "ru-RU": "Русский текст" },
   "another.key": { "en-US": "...", "zh-TW": "...", "ja-JP": "...", "vi-VN": "...", "ru-RU": "..." }
 }
+
+占位符示例:
+原文：收益趋势（{currency}）
+正确俄语：Тренд доходов ({currency})
+错误俄语：Тренд доходов ({валюта})
+注意：占位符 {currency} 必须保持不变。
 
 本次请求的语言列表:
 ${languageList}
@@ -60,7 +71,7 @@ ${textList}`;
         messages: [
           {
             role: 'system',
-            content: 'You are a meticulous translation engine specialized in music industry asset management. Only translate into English (en-US), Simplified Chinese (zh-CN), Traditional Chinese (zh-TW), Japanese (ja-JP), Vietnamese (vi-VN), or Russian (ru-RU) as requested. Use established music industry terminology (e.g., publishing rights, master rights, DSP platforms, royalty accounting) with a concise, formal tone suitable for professional software interfaces. Always respond with valid JSON. The top-level keys must match the provided translation keys exactly. Each value is an object mapping language codes to fluent, domain-appropriate translations fully written in that language. No extra commentary.',
+            content: 'You are a meticulous translation engine specialized in music industry asset management. Only translate into English (en-US), Simplified Chinese (zh-CN), Traditional Chinese (zh-TW), Japanese (ja-JP), Vietnamese (vi-VN), or Russian (ru-RU) as requested. Use established music industry terminology (e.g., publishing rights, master rights, DSP platforms, royalty accounting) with a concise, formal tone suitable for professional software interfaces. Never translate, rename, reorder, remove, or add placeholders, variables, or template tokens. Preserve all placeholders exactly as they appear in the source text, including braces, spelling, case, whitespace, order, and count. This applies to patterns such as {currency}, {name}, {count}, {{value}}, ${amount}, %s, %d, :id, and XML/HTML-like placeholders such as <0>...</0>. Always respond with valid JSON. The top-level keys must match the provided translation keys exactly. Each value is an object mapping language codes to fluent, domain-appropriate translations fully written in that language. No extra commentary.',
           },
           {
             role: 'user',
